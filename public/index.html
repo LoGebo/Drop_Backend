@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API de Seguimiento de Transporte</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            text-align: center;
+        }
+        h2 {
+            color: #444;
+            margin-top: 20px;
+        }
+        pre {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .endpoint {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-left: 3px solid #0078d7;
+            background-color: #f8f8f8;
+        }
+        .method {
+            font-weight: bold;
+            color: #0078d7;
+        }
+        .url {
+            font-family: monospace;
+            background-color: #eee;
+            padding: 3px 5px;
+            border-radius: 3px;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            pre {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>API de Seguimiento de Transporte en Tiempo Real</h1>
+    <p>Esta página proporciona información sobre los endpoints disponibles en la API.</p>
+    <p>La documentación completa está disponible en: <a href="/api-docs">/api-docs</a></p>
+    
+    <h2>Endpoints de Vehículos</h2>
+    
+    <div class="endpoint">
+        <p><span class="method">GET</span> <span class="url">/api/vehicles</span></p>
+        <p>Obtener todos los vehículos disponibles.</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method">GET</span> <span class="url">/api/vehicles/:vehicleId</span></p>
+        <p>Obtener información de un vehículo específico.</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method">GET</span> <span class="url">/api/vehicles/type/:vehicleType</span></p>
+        <p>Obtener vehículos por tipo (BUS, TRAIN, etc.).</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method">GET</span> <span class="url">/api/vehicles/route/:routeId</span></p>
+        <p>Obtener vehículos que están en una ruta específica.</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method">POST</span> <span class="url">/api/vehicles/:vehicleId/location</span></p>
+        <p>Actualizar la ubicación de un vehículo.</p>
+        <pre>
+{
+  "latitude": 19.432608,
+  "longitude": -99.133209,
+  "occupancy": 45,
+  "occupancyStop": 12,
+  "price": 12.50,
+  "route": "ROUTE1"
+}
+        </pre>
+    </div>
+    
+    <h2>Endpoints de Rutas</h2>
+    
+    <div class="endpoint">
+        <p><span class="method">GET</span> <span class="url">/api/routes</span></p>
+        <p>Obtener todas las rutas disponibles.</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method">GET</span> <span class="url">/api/routes/:routeId</span></p>
+        <p>Obtener información de una ruta específica.</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method">GET</span> <span class="url">/api/routes/:routeId/vehicles</span></p>
+        <p>Obtener todos los vehículos que están en una ruta específica.</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method">POST</span> <span class="url">/api/routes</span></p>
+        <p>Crear una nueva ruta.</p>
+        <pre>
+{
+  "id": "ROUTE3",
+  "name": "Ruta Centro-Norte",
+  "type": "BUS",
+  "stops": [
+    {
+      "id": "STOP1",
+      "name": "Estación Central",
+      "coordinates": {
+        "latitude": 19.432608,
+        "longitude": -99.133209
+      }
+    },
+    {
+      "id": "STOP8",
+      "name": "Terminal Norte",
+      "coordinates": {
+        "latitude": 19.452519,
+        "longitude": -99.146320
+      }
+    }
+  ]
+}
+        </pre>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method">POST</span> <span class="url">/api/routes/suggest</span></p>
+        <p>Obtener sugerencia de ruta óptima entre dos puntos.</p>
+        <pre>
+{
+  "origin": {
+    "latitude": 19.432608,
+    "longitude": -99.133209
+  },
+  "destination": {
+    "latitude": 19.414562,
+    "longitude": -99.167721
+  }
+}
+        </pre>
+    </div>
+    
+    <h2>Prueba de WebSockets</h2>
+    <p>Para probar las actualizaciones en tiempo real, puedes visitar: <a href="/socket-test.html">/socket-test.html</a></p>
+</body>
+</html> 

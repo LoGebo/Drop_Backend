@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+package-lock.json
+
+# Archivos de entorno
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Directorios del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Directorio de cobertura de pruebas
+coverage/
+
+# Directorio de construcción
+dist/
+build/ 

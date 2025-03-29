@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Socket.io - Seguimiento de Transporte</title>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            max-width: 100%;
+            flex-wrap: wrap;
+            margin: 0 auto;
+            justify-content: center;
+        }
+        .column {
+            flex: 1;
+            min-width: 300px;
+            max-width: 600px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px;
+            box-sizing: border-box;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        button {
+            background-color: #0078d7;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 0;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .log {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .column {
+                width: 100%;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Prueba de Socket.io - Seguimiento de Transporte en Tiempo Real</h1>
+    
+    <div class="container">
+        <div class="column">
+            <h2>Conductor (Emisor)</h2>
+            
+            <div id="driverStatus" class="status disconnected">Desconectado</div>
+            
+            <div class="form-group">
+                <button id="connectDriver">Conectar</button>
+                <button id="disconnectDriver">Desconectar</button>
+            </div>
+            
+            <div class="form-group">
+                <label for="vehicleId">ID del Vehículo:</label>
+                <select id="vehicleId">
+                    <option value="BUS001">BUS001</option>
+                    <option value="BUS002">BUS002</option>
+                    <option value="BUS003">BUS003</option>
+                    <option value="BUS004">BUS004</option>
+                    <option value="BUS005">BUS005</option>
+                    <option value="TRAIN001">TRAIN001</option>
+                    <option value="TRAIN002">TRAIN002</option>
+                    <option value="MINIBUS001">MINIBUS001</option>
+                    <option value="NEW_BUS">NUEVO_BUS</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="latitude">Latitud:</label>
+                <input type="number" id="latitude" step="0.000001" value="19.432608">
+            </div>
+            
+            <div class="form-group">
+                <label for="longitude">Longitud:</label>
+                <input type="number" id="longitude" step="0.000001" value="-99.133209">
+            </div>
+            
+            <div class="form-group">
+                <label for="occupancy">Ocupación (%):</label>
+                <input type="number" id="occupancy" min="0" max="100" value="35">
+            </div>
+            
+            <div class="form-group">
+                <label for="occupancyStop">Personas en la parada:</label>
+                <input type="number" id="occupancyStop" min="0" max="100" value="10">
+            </div>
+            
+            <div class="form-group">
+                <label for="price">Precio ($):</label>
+                <input type="number" id="price" min="0" step="0.50" value="12.00">
+            </div>
+            
+            <div class="form-group">
+                <label for="routeId">Ruta:</label>
+                <select id="routeId">
+                    <option value="ROUTE1">ROUTE1 - Centro-Aeropuerto</option>
+                    <option value="ROUTE2">ROUTE2 - Línea 1 Tren</option>
+                    <option value="ROUTE3">ROUTE3 - Periferia Sur</option>
+                    <option value="ROUTE4">ROUTE4 - Circuito Interior</option>
+                    <option value="ROUTE5">ROUTE5 - Expreso Aeropuerto</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <button id="sendLocation">Enviar Ubicación</button>
+                <button id="startSimulation">Iniciar Simulación</button>
+                <button id="stopSimulation">Detener Simulación</button>
+            </div>
+            
+            <h3>Registro de Actividad:</h3>
+            <div id="driverLog" class="log"></div>
+        </div>
+        
+        <div class="column">
+            <h2>Pasajero (Receptor)</h2>
+            
+            <div id="passengerStatus" class="status disconnected">Desconectado</div>
+            
+            <div class="form-group">
+                <button id="connectPassenger">Conectar</button>
+                <button id="disconnectPassenger">Desconectar</button>
+            </div>
+            
+            <div class="form-group">
+                <label>Seguir Vehículo:</label>
+                <select id="followVehicle">
+                    <option value="BUS001">BUS001</option>
+                    <option value="BUS002">BUS002</option>
+                    <option value="BUS003">BUS003</option>
+                    <option value="BUS004">BUS004</option>
+                    <option value="BUS005">BUS005</option>
+                    <option value="TRAIN001">TRAIN001</option>
+                    <option value="TRAIN002">TRAIN002</option>
+                    <option value="MINIBUS001">MINIBUS001</option>
+                </select>
+                <button id="followVehicleBtn">Seguir</button>
+            </div>
+            
+            <div class="form-group">
+                <label>Seguir Ruta:</label>
+                <select id="followRoute">
+                    <option value="ROUTE1">ROUTE1 - Centro-Aeropuerto</option>
+                    <option value="ROUTE2">ROUTE2 - Línea 1 Tren</option>
+                    <option value="ROUTE3">ROUTE3 - Periferia Sur</option>
+                    <option value="ROUTE4">ROUTE4 - Circuito Interior</option>
+                    <option value="ROUTE5">ROUTE5 - Expreso Aeropuerto</option>
+                </select>
+                <button id="followRouteBtn">Seguir</button>
+            </div>
+            
+            <h3>Actualizaciones en Tiempo Real:</h3>
+            <div id="passengerLog" class="log"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Variables para los sockets
+        let driverSocket = null;
+        let passengerSocket = null;
+        let simulationInterval = null;
+        
+        // Elementos DOM
+        const driverStatus = document.getElementById('driverStatus');
+        const passengerStatus = document.getElementById('passengerStatus');
+        const driverLog = document.getElementById('driverLog');
+        const passengerLog = document.getElementById('passengerLog');
+        
+        // Conectar sockets del conductor
+        document.getElementById('connectDriver').addEventListener('click', () => {
+            if (!driverSocket) {
+                driverSocket = io();
+                
+                driverSocket.on('connect', () => {
+                    driverStatus.textContent = 'Conectado';
+                    driverStatus.className = 'status connected';
+                    logDriver('Conectado al servidor');
+                });
+                
+                driverSocket.on('disconnect', () => {
+                    driverStatus.textContent = 'Desconectado';
+                    driverStatus.className = 'status disconnected';
+                    logDriver('Desconectado del servidor');
+                });
+                
+                driverSocket.on('error', (error) => {
+                    logDriver('Error: ' + JSON.stringify(error));
+                });
+            }
+        });
+        
+        // Desconectar socket del conductor
+        document.getElementById('disconnectDriver').addEventListener('click', () => {
+            if (driverSocket) {
+                driverSocket.disconnect();
+                driverSocket = null;
+                stopSimulation();
+            }
+        });
+        
+        // Enviar ubicación del vehículo
+        document.getElementById('sendLocation').addEventListener('click', () => {
+            if (!driverSocket) {
+                logDriver('No conectado al servidor');
+                return;
+            }
+            
+            const vehicleId = document.getElementById('vehicleId').value;
+            const latitude = parseFloat(document.getElementById('latitude').value);
+            const longitude = parseFloat(document.getElementById('longitude').value);
+            const occupancy = parseInt(document.getElementById('occupancy').value);
+            const occupancyStop = parseInt(document.getElementById('occupancyStop').value);
+            const price = parseFloat(document.getElementById('price').value);
+            const routeId = document.getElementById('routeId').value;
+            
+            const locationData = {
+                vehicleId,
+                latitude,
+                longitude,
+                occupancy,
+                occupancyStop,
+                price,
+                routeId
+            };
+            
+            driverSocket.emit('driver:location', locationData);
+            logDriver('Enviada ubicación: ' + JSON.stringify(locationData));
+        });
+        
+        // Iniciar simulación de movimiento
+        document.getElementById('startSimulation').addEventListener('click', () => {
+            if (!driverSocket) {
+                logDriver('No conectado al servidor');
+                return;
+            }
+            
+            if (simulationInterval) {
+                stopSimulation();
+            }
+            
+            logDriver('Iniciando simulación de movimiento');
+            
+            simulationInterval = setInterval(() => {
+                const vehicleId = document.getElementById('vehicleId').value;
+                let latitude = parseFloat(document.getElementById('latitude').value);
+                let longitude = parseFloat(document.getElementById('longitude').value);
+                let occupancy = parseInt(document.getElementById('occupancy').value);
+                let occupancyStop = parseInt(document.getElementById('occupancyStop').value);
+                const price = parseFloat(document.getElementById('price').value);
+                const routeId = document.getElementById('routeId').value;
+                
+                // Cambiar ligeramente la posición
+                latitude += (Math.random() - 0.5) * 0.001;
+                longitude += (Math.random() - 0.5) * 0.001;
+                
+                // Actualizar ocupación aleatoriamente
+                occupancy += Math.floor((Math.random() - 0.5) * 10);
+                occupancy = Math.max(0, Math.min(100, occupancy));
+                
+                // Actualizar personas en la parada aleatoriamente
+                occupancyStop += Math.floor((Math.random() - 0.5) * 5);
+                occupancyStop = Math.max(0, Math.min(50, occupancyStop));
+                
+                document.getElementById('latitude').value = latitude;
+                document.getElementById('longitude').value = longitude;
+                document.getElementById('occupancy').value = occupancy;
+                document.getElementById('occupancyStop').value = occupancyStop;
+                
+                const locationData = {
+                    vehicleId,
+                    latitude,
+                    longitude,
+                    occupancy,
+                    occupancyStop,
+                    price,
+                    routeId
+                };
+                
+                driverSocket.emit('driver:location', locationData);
+                logDriver('Enviada ubicación (simulación): ' + JSON.stringify(locationData));
+            }, 3000);
+        });
+        
+        // Detener simulación
+        document.getElementById('stopSimulation').addEventListener('click', stopSimulation);
+        
+        function stopSimulation() {
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+                logDriver('Simulación detenida');
+            }
+        }
+        
+        // Conectar socket del pasajero
+        document.getElementById('connectPassenger').addEventListener('click', () => {
+            if (!passengerSocket) {
+                passengerSocket = io();
+                
+                passengerSocket.on('connect', () => {
+                    passengerStatus.textContent = 'Conectado';
+                    passengerStatus.className = 'status connected';
+                    logPassenger('Conectado al servidor');
+                });
+                
+                passengerSocket.on('disconnect', () => {
+                    passengerStatus.textContent = 'Desconectado';
+                    passengerStatus.className = 'status disconnected';
+                    logPassenger('Desconectado del servidor');
+                });
+                
+                passengerSocket.on('vehicle:update', (data) => {
+                    logPassenger('Actualización del vehículo: ' + JSON.stringify(data));
+                });
+                
+                passengerSocket.on('route:vehicles', (data) => {
+                    logPassenger('Vehículos en la ruta: ' + JSON.stringify(data));
+                });
+                
+                passengerSocket.on('error', (error) => {
+                    logPassenger('Error: ' + JSON.stringify(error));
+                });
+            }
+        });
+        
+        // Desconectar socket del pasajero
+        document.getElementById('disconnectPassenger').addEventListener('click', () => {
+            if (passengerSocket) {
+                passengerSocket.disconnect();
+                passengerSocket = null;
+            }
+        });
+        
+        // Seguir un vehículo
+        document.getElementById('followVehicleBtn').addEventListener('click', () => {
+            if (!passengerSocket) {
+                logPassenger('No conectado al servidor');
+                return;
+            }
+            
+            const vehicleId = document.getElementById('followVehicle').value;
+            passengerSocket.emit('passenger:follow-vehicle', vehicleId);
+            logPassenger('Siguiendo al vehículo: ' + vehicleId);
+        });
+        
+        // Seguir una ruta
+        document.getElementById('followRouteBtn').addEventListener('click', () => {
+            if (!passengerSocket) {
+                logPassenger('No conectado al servidor');
+                return;
+            }
+            
+            const routeId = document.getElementById('followRoute').value;
+            passengerSocket.emit('passenger:follow-route', routeId);
+            logPassenger('Siguiendo la ruta: ' + routeId);
+        });
+        
+        // Función para registrar mensajes del conductor
+        function logDriver(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            driverLog.innerHTML += `[${timestamp}] ${message}\n`;
+            driverLog.scrollTop = driverLog.scrollHeight;
+        }
+        
+        // Función para registrar mensajes del pasajero
+        function logPassenger(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            passengerLog.innerHTML += `[${timestamp}] ${message}\n`;
+            passengerLog.scrollTop = passengerLog.scrollHeight;
+        }
+    </script>
+</body>
+</html> 

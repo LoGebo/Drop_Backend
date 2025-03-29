@@ -1,0 +1,25 @@
+{
+  "name": "drop_backend",
+  "version": "1.0.0",
+  "description": "The **Real-Time Transport Tracking Application** is designed to allow both **drivers** and **passengers** to track transport vehicles in real-time and optimize their routes. The initial phase of the backend development will focus on the **core functionalities** of the application: the **route suggestion engine** for passengers and the **real-time vehicle tracking**. These core functionalities will be critical for the next steps in building the full system.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "redis": "^4.7.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
