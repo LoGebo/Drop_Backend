@@ -45,6 +45,9 @@ app.get('/api-docs', (req, res) => {
         getVehicles: 'GET /api/routes/:routeId/vehicles',
         create: 'POST /api/routes',
         suggest: 'POST /api/routes/suggest'
+      },
+      trips: {
+        planTrip: 'POST /api/trips/plan'
       }
     }
   });

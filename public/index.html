@@ -166,7 +166,37 @@
         </pre>
     </div>
     
+    <h2>Endpoints de Planificación de Viajes</h2>
+    
+    <div class="endpoint">
+        <p><span class="method">POST</span> <span class="url">/api/trips/plan</span></p>
+        <p>Calcular la ruta óptima multimodal combinando diferentes tipos de transporte público.</p>
+        <pre>
+{
+  "origin": {
+    "latitude": 19.432608,
+    "longitude": -99.133209
+  },
+  "destination": {
+    "latitude": 19.414562,
+    "longitude": -99.167721
+  },
+  "preferences": {
+    "maxWalkingDistance": 800,
+    "prioritizeLowOccupancy": false,
+    "prioritizeLowCost": false,
+    "prioritizeFastRoute": true,
+    "maxTransfers": 2,
+    "transportTypes": ["BUS", "METRO", "WALK"]
+  }
+}
+        </pre>
+    </div>
+    
     <h2>Prueba de WebSockets</h2>
     <p>Para probar las actualizaciones en tiempo real, puedes visitar: <a href="/socket-test.html">/socket-test.html</a></p>
+    
+    <h2>Planificador de Rutas</h2>
+    <p>Para probar el algoritmo de planificación de rutas óptimas, puedes visitar: <a href="/route-planner.html">/route-planner.html</a></p>
 </body>
 </html> 
