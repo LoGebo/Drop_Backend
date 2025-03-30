@@ -20,7 +20,7 @@ const initSocketServer = (httpServer) => {
     // Evento para conductores que envían su ubicación
     socket.on('driver:location', async (data) => {
       try {
-        const { vehicleId, latitude, longitude, occupancy, occupancyStop, price, routeId } = data;
+        const { vehicleId, latitude, longitude, occupancy, routeId } = data;
 
         if (!vehicleId || !latitude || !longitude) {
           return socket.emit('error', { message: 'Missing required fields' });
@@ -31,8 +31,6 @@ const initSocketServer = (httpServer) => {
           id: vehicleId,
           location: { latitude, longitude },
           occupancy: occupancy || 0,
-          occupancyStop: occupancyStop || 0,
-          price: price || 0,
           routeId: routeId,
           lastUpdate: Date.now()
         };

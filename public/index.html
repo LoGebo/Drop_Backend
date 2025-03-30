@@ -12,14 +12,11 @@
             padding: 20px;
             max-width: 800px;
             margin: 0 auto;
-            box-sizing: border-box;
-            overflow-x: hidden;
         }
         h1 {
             color: #333;
             border-bottom: 2px solid #eee;
             padding-bottom: 10px;
-            text-align: center;
         }
         h2 {
             color: #444;
@@ -31,8 +28,6 @@
             border-radius: 4px;
             padding: 15px;
             overflow-x: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
         }
         .endpoint {
             margin-bottom: 20px;
@@ -49,14 +44,6 @@
             background-color: #eee;
             padding: 3px 5px;
             border-radius: 3px;
-        }
-        @media (max-width: 600px) {
-            body {
-                padding: 10px;
-            }
-            pre {
-                font-size: 14px;
-            }
         }
     </style>
 </head>
@@ -95,8 +82,6 @@
   "latitude": 19.432608,
   "longitude": -99.133209,
   "occupancy": 45,
-  "occupancyStop": 12,
-  "price": 12.50,
   "route": "ROUTE1"
 }
         </pre>
@@ -166,37 +151,7 @@
         </pre>
     </div>
     
-    <h2>Endpoints de Planificación de Viajes</h2>
-    
-    <div class="endpoint">
-        <p><span class="method">POST</span> <span class="url">/api/trips/plan</span></p>
-        <p>Calcular la ruta óptima multimodal combinando diferentes tipos de transporte público.</p>
-        <pre>
-{
-  "origin": {
-    "latitude": 19.432608,
-    "longitude": -99.133209
-  },
-  "destination": {
-    "latitude": 19.414562,
-    "longitude": -99.167721
-  },
-  "preferences": {
-    "maxWalkingDistance": 800,
-    "prioritizeLowOccupancy": false,
-    "prioritizeLowCost": false,
-    "prioritizeFastRoute": true,
-    "maxTransfers": 2,
-    "transportTypes": ["BUS", "METRO", "WALK"]
-  }
-}
-        </pre>
-    </div>
-    
     <h2>Prueba de WebSockets</h2>
     <p>Para probar las actualizaciones en tiempo real, puedes visitar: <a href="/socket-test.html">/socket-test.html</a></p>
-    
-    <h2>Planificador de Rutas</h2>
-    <p>Para probar el algoritmo de planificación de rutas óptimas, puedes visitar: <a href="/route-planner.html">/route-planner.html</a></p>
 </body>
 </html> 

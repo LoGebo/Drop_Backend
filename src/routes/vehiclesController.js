@@ -80,7 +80,7 @@ const getVehicleById = async (req, res) => {
 const updateVehicleLocation = async (req, res) => {
   try {
     const { vehicleId } = req.params;
-    const { latitude, longitude, occupancy, occupancyStop, price } = req.body;
+    const { latitude, longitude, occupancy } = req.body;
     
     // Validar datos
     if (!latitude || !longitude) {
@@ -116,16 +116,6 @@ const updateVehicleLocation = async (req, res) => {
     // Actualizar ocupación si se proporciona
     if (occupancy !== undefined) {
       vehicleData.occupancy = parseInt(occupancy);
-    }
-    
-    // Actualizar ocupación de la parada si se proporciona
-    if (occupancyStop !== undefined) {
-      vehicleData.occupancyStop = parseInt(occupancyStop);
-    }
-    
-    // Actualizar precio si se proporciona
-    if (price !== undefined) {
-      vehicleData.price = parseFloat(price);
     }
     
     // Actualizar ruta si se proporciona

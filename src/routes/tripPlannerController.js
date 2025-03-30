@@ -1,93 +1,131 @@
-const { redisClient } = require('../config/redis');
+const metroRoutes = require('../data/metroRoutes');
 
 /**
- * Planificar un viaje en transporte público
- * @route POST /api/trips/plan
+ * Planificar un viaje entre dos puntos
+ * @param {Object} origin - Coordenadas de origen
+ * @param {Object} destination - Coordenadas de destino
+ * @param {Object} preferences - Preferencias del usuario
+ * @returns {Object} - Ruta planificada
  */
-const planTrip = async (req, res) => {
+async function planTrip(origin, destination, preferences) {
   try {
-    const { origin, destination, preferences } = req.body;
+    console.log('Iniciando planificación de viaje:');
+    console.log('- Origen:', origin);
+    console.log('- Destino:', destination);
+    console.log('- Preferencias:', preferences);
+
+    // Validar parámetros
+    if (!origin || !origin.latitude || !origin.longitude) {
+      throw new Error('El origen debe tener coordenadas válidas');
+    }
+
+    if (!destination || !destination.latitude || !destination.longitude) {
+      throw new Error('El destino debe tener coordenadas válidas');
+    }
+
+    // Construir grafo de transporte
+    const graph = await buildTransportGraph(origin, destination, preferences);
     
-    // Validar datos de entrada
-    if (!origin || !destination || !origin.latitude || !origin.longitude || 
-        !destination.latitude || !destination.longitude) {
-      return res.status(400).json({
-        success: false,
-        message: 'Se requieren coordenadas de origen y destino completas'
-      });
+    if (!graph || Object.keys(graph.nodes).length === 0) {
+      console.log('No se pudo construir el grafo de transporte');
+      return null;
     }
     
-    // Preferencias del usuario (opcionales)
-    const userPreferences = {
-      maxWalkingDistance: preferences?.maxWalkingDistance || 1000, // metros
-      prioritizeLowOccupancy: preferences?.prioritizeLowOccupancy || false,
-      prioritizeLowCost: preferences?.prioritizeLowCost || false,
-      prioritizeFastRoute: preferences?.prioritizeFastRoute || true,
-      maxTransfers: preferences?.maxTransfers || 3,
-      transportTypes: preferences?.transportTypes || ['BUS', 'TRAIN', 'METRO', 'WALK']
+    console.log(`Grafo construido con ${Object.keys(graph.nodes).length} nodos y ${graph.edges.length} conexiones`);
+    
+    // Convertir origen y destino a IDs de nodos
+    const startNodeId = `origin`;
+    const endNodeId = `destination`;
+    
+    // Encontrar ruta óptima
+    const route = findOptimalRoute(graph, startNodeId, endNodeId, preferences);
+    
+    if (!route) {
+      console.log('No se encontró una ruta óptima');
+      return null;
+    }
+    
+    // Construir respuesta
+    const result = {
+      totalTime: route.totalTime,
+      totalDistance: route.totalDistance,
+      totalCost: route.totalCost,
+      transfers: route.transfers,
+      segments: route.segments
     };
     
-    // Planificar viaje usando nuestro algoritmo
-    const tripPlan = await calculateOptimalTrip(origin, destination, userPreferences);
-    
-    return res.status(200).json({
-      success: true,
-      trip: tripPlan
-    });
+    return result;
   } catch (error) {
     console.error('Error en la planificación de viaje:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al planificar el viaje'
-    });
+    throw error;
   }
-};
+}
 
 /**
- * Encontrar paradas cercanas a una ubicación dada
- * @param {Object} location - Coordenadas de ubicación
+ * Buscar paradas cercanas a una ubicación
+ * @param {Object} location - Coordenadas de la ubicación
  * @param {number} radius - Radio de búsqueda en metros
- * @returns {Array} - Paradas encontradas
+ * @returns {Array} - Lista de paradas cercanas
  */
 async function findNearbyStops(location, radius = 800) {
   try {
-    // Obtener todas las rutas
-    const routeKeys = await redisClient.keys('route:*');
-    const nearbyStops = [];
+    console.log(`Buscando paradas cercanas a (${location.latitude}, ${location.longitude}) en radio ${radius}m`);
     
-    for (const routeKey of routeKeys) {
-      const routeData = await redisClient.get(routeKey);
-      if (routeData) {
-        const route = JSON.parse(routeData);
-        
-        // Verificar cada parada de la ruta
-        if (route.stops && Array.isArray(route.stops)) {
-          for (const stop of route.stops) {
-            if (stop.coordinates && stop.coordinates.latitude && stop.coordinates.longitude) {
-              // Calcular distancia entre la ubicación y la parada
-              const distance = calculateDistance(
-                location.latitude, location.longitude,
-                stop.coordinates.latitude, stop.coordinates.longitude
-              );
-              
-              // Si está dentro del radio, agregar a la lista
-              if (distance <= radius) {
-                nearbyStops.push({
-                  ...stop,
-                  routeId: route.id,
-                  routeName: route.name,
-                  routeType: route.type,
-                  distance: distance
-                });
-              }
-            }
-          }
-        }
-      }
+    // Datos de las paradas de Metro Línea 1 usando las coordenadas exactas
+    const metroStops = [
+      { id: 'stop_talleres', name: 'Talleres', coordinates: { latitude: 25.75389, longitude: -100.36528 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_san_bernabe', name: 'San Bernabé', coordinates: { latitude: 25.74833, longitude: -100.36167 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_unidad_modelo', name: 'Unidad Modelo', coordinates: { latitude: 25.74194, longitude: -100.35500 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_aztlan', name: 'Aztlán', coordinates: { latitude: 25.7321485, longitude: -100.3472600 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_penitenciaria', name: 'Penitenciaría', coordinates: { latitude: 25.7233152, longitude: -100.3425450 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_alfonso_reyes', name: 'Alfonso Reyes', coordinates: { latitude: 25.71611, longitude: -100.34250 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_mitras', name: 'Mitras', coordinates: { latitude: 25.7059242, longitude: -100.3424003 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_simon_bolivar', name: 'Simón Bolívar', coordinates: { latitude: 25.6987474, longitude: -100.3431880 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_hospital', name: 'Hospital', coordinates: { latitude: 25.69194, longitude: -100.34417 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_edison', name: 'Edison', coordinates: { latitude: 25.68694, longitude: -100.33361 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_central', name: 'Central', coordinates: { latitude: 25.68694, longitude: -100.32444 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_cuauhtemoc', name: 'Cuauhtémoc', coordinates: { latitude: 25.68611, longitude: -100.31694 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_del_golfo', name: 'Del Golfo', coordinates: { latitude: 25.68512, longitude: -100.30663 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_felix_u_gomez', name: 'Félix U. Gómez', coordinates: { latitude: 25.68389, longitude: -100.29667 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_parque_fundidora', name: 'Parque Fundidora', coordinates: { latitude: 25.68361, longitude: -100.28806 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_y_griega', name: 'Y Griega', coordinates: { latitude: 25.6832309, longitude: -100.2794460 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_eloy_cavazos', name: 'Eloy Cavazos', coordinates: { latitude: 25.68000, longitude: -100.26417 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_lerdo_de_tejada', name: 'Lerdo de Tejada', coordinates: { latitude: 25.67972, longitude: -100.25278 }, routes: ['METRO_L1'], type: 'METRO' },
+      { id: 'stop_exposicion', name: 'Exposición', coordinates: { latitude: 25.67944, longitude: -100.24556 }, routes: ['METRO_L1'], type: 'METRO' },
+      // Estaciones Línea 2 (simplificadas)
+      { id: 'stop_general_anaya', name: 'General Anaya', coordinates: { latitude: 25.6730, longitude: -100.3178 }, routes: ['METRO_L2'], type: 'METRO' },
+      { id: 'stop_santa_lucia', name: 'Santa Lucía', coordinates: { latitude: 25.6798, longitude: -100.3394 }, routes: ['METRO_L2'], type: 'METRO' },
+      // Paradas de autobús
+      { id: 'stop_macroplaza', name: 'Macroplaza', coordinates: { latitude: 25.6694, longitude: -100.3098 }, routes: ['ROUTE_1', 'ROUTE_17'], type: 'BUS' },
+      { id: 'stop_fundidora_bus', name: 'Parque Fundidora (Bus)', coordinates: { latitude: 25.6791, longitude: -100.2840 }, routes: ['ROUTE_17'], type: 'BUS' },
+      { id: 'stop_universidad', name: 'Av. Universidad', coordinates: { latitude: 25.6895, longitude: -100.3163 }, routes: ['ROUTE_1'], type: 'BUS' },
+      { id: 'stop_santa_catarina', name: 'Santa Catarina Centro', coordinates: { latitude: 25.6731, longitude: -100.4583 }, routes: ['ROUTE_130'], type: 'BUS' }
+    ];
+    
+    // Obtener también la estación más cercana utilizando metroRoutes
+    let nearestMetroStation = null;
+    if (metroRoutes && metroRoutes.findNearestStation) {
+      nearestMetroStation = metroRoutes.findNearestStation(location.latitude, location.longitude);
+      console.log(`La estación de metro más cercana es ${nearestMetroStation.name} a ${nearestMetroStation.distance.toFixed(2)} metros`);
     }
     
+    // Filtrar paradas dentro del radio
+    const nearbyStops = metroStops.filter(stop => {
+      const distance = calculateDistance(
+        location.latitude, 
+        location.longitude, 
+        stop.coordinates.latitude, 
+        stop.coordinates.longitude
+      );
+      
+      stop.distance = Math.round(distance); // Añadir distancia en metros
+      return distance <= radius;
+    });
+    
     // Ordenar por distancia
-    return nearbyStops.sort((a, b) => a.distance - b.distance);
+    nearbyStops.sort((a, b) => a.distance - b.distance);
+    
+    return nearbyStops;
   } catch (error) {
     console.error('Error buscando paradas cercanas:', error);
     return [];
@@ -95,7 +133,7 @@ async function findNearbyStops(location, radius = 800) {
 }
 
 /**
- * Calcular la distancia entre dos puntos usando la fórmula de Haversine
+ * Calcular la distancia entre dos puntos usando la fórmula Haversine
  * @param {number} lat1 - Latitud del punto 1
  * @param {number} lon1 - Longitud del punto 1
  * @param {number} lat2 - Latitud del punto 2
@@ -103,183 +141,261 @@ async function findNearbyStops(location, radius = 800) {
  * @returns {number} - Distancia en metros
  */
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371e3; // Radio de la tierra en metros
+  const R = 6371000; // Radio de la Tierra en metros
   const φ1 = lat1 * Math.PI / 180;
   const φ2 = lat2 * Math.PI / 180;
   const Δφ = (lat2 - lat1) * Math.PI / 180;
   const Δλ = (lon2 - lon1) * Math.PI / 180;
-  
+
   const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const distance = R * c;
-  
-  return distance; // Distancia en metros
+
+  return R * c; // Distancia en metros
 }
 
 /**
- * Obtener vehículos en una ruta específica
- * @param {string} routeId - ID de la ruta
- * @returns {Array} - Vehículos en la ruta
- */
-async function getVehiclesInRoute(routeId) {
-  try {
-    const vehicleKeys = await redisClient.keys('vehicle:*');
-    const vehicles = [];
-    
-    for (const key of vehicleKeys) {
-      const vehicleData = await redisClient.get(key);
-      if (vehicleData) {
-        const vehicle = JSON.parse(vehicleData);
-        if (vehicle.route === routeId) {
-          vehicles.push(vehicle);
-        }
-      }
-    }
-    
-    return vehicles;
-  } catch (error) {
-    console.error('Error obteniendo vehículos de la ruta:', error);
-    return [];
-  }
-}
-
-/**
- * Construir un grafo de transporte para el cálculo de rutas
- * @param {Array} originStops - Paradas cercanas al origen
- * @param {Array} destinationStops - Paradas cercanas al destino
+ * Construir un grafo de transporte basado en el origen, destino y preferencias
+ * @param {Object} origin - Coordenadas de origen
+ * @param {Object} destination - Coordenadas de destino
+ * @param {Object} preferences - Preferencias del usuario
  * @returns {Object} - Grafo de transporte
  */
-async function buildTransportGraph(originStops, destinationStops) {
+async function buildTransportGraph(origin, destination, preferences) {
   try {
-    // Obtener todas las rutas
-    const routeKeys = await redisClient.keys('route:*');
-    const routes = [];
-    
-    for (const routeKey of routeKeys) {
-      const routeData = await redisClient.get(routeKey);
-      if (routeData) {
-        routes.push(JSON.parse(routeData));
-      }
-    }
-    
-    // Construir el grafo
+    // Inicializar grafo
     const graph = {
       nodes: {},
-      edges: []
+      edges: [],
+      vehicles: {}
     };
     
-    // Agregar nodos de origen y destino
-    const originNode = {
-      id: 'ORIGIN',
-      type: 'VIRTUAL',
-      coordinates: {
-        latitude: originStops[0]?.coordinates?.latitude || 0,
-        longitude: originStops[0]?.coordinates?.longitude || 0
-      }
+    // Añadir nodos de origen y destino
+    graph.nodes.origin = {
+      id: 'origin',
+      type: 'USER_LOCATION',
+      coordinates: origin
     };
     
-    const destNode = {
-      id: 'DESTINATION',
-      type: 'VIRTUAL',
-      coordinates: {
-        latitude: destinationStops[0]?.coordinates?.latitude || 0,
-        longitude: destinationStops[0]?.coordinates?.longitude || 0
-      }
+    graph.nodes.destination = {
+      id: 'destination',
+      type: 'USER_LOCATION',
+      coordinates: destination
     };
     
-    graph.nodes['ORIGIN'] = originNode;
-    graph.nodes['DESTINATION'] = destNode;
+    // Obtener paradas cercanas al origen y destino
+    const originNearbyStops = await findNearbyStops(origin, preferences.maxWalkingDistance);
+    const destNearbyStops = await findNearbyStops(destination, preferences.maxWalkingDistance);
     
-    // Agregar todas las paradas de todas las rutas como nodos
-    for (const route of routes) {
-      if (route.stops && Array.isArray(route.stops)) {
-        for (const stop of route.stops) {
-          const nodeId = `${stop.id}_${route.id}`;
-          if (!graph.nodes[nodeId]) {
-            graph.nodes[nodeId] = {
-              id: nodeId,
-              stopId: stop.id,
-              stopName: stop.name,
-              routeId: route.id,
-              routeName: route.name,
-              routeType: route.type,
-              coordinates: stop.coordinates
-            };
-          }
-        }
-      }
-    }
-    
-    // Agregar conexiones entre paradas de la misma ruta
-    for (const route of routes) {
-      if (route.stops && Array.isArray(route.stops) && route.stops.length > 1) {
-        for (let i = 0; i < route.stops.length - 1; i++) {
-          const currentStop = route.stops[i];
-          const nextStop = route.stops[i + 1];
-          
-          const fromNodeId = `${currentStop.id}_${route.id}`;
-          const toNodeId = `${nextStop.id}_${route.id}`;
-          
-          const distance = calculateDistance(
-            currentStop.coordinates.latitude, currentStop.coordinates.longitude,
-            nextStop.coordinates.latitude, nextStop.coordinates.longitude
-          );
-          
-          // Estimar tiempo basado en la distancia y tipo de transporte
-          const timeMinutes = estimateTravelTime(distance, route.type);
-          const cost = route.basePrice || calculateBaseFare(route.type);
-          
-          // Obtener vehículos en la ruta para verificar ocupación
-          const routeVehicles = await getVehiclesInRoute(route.id);
-          const avgOccupancy = routeVehicles.length > 0 
-            ? routeVehicles.reduce((sum, v) => sum + (v.occupancy || 0), 0) / routeVehicles.length 
-            : 50; // Valor por defecto
-          
-          graph.edges.push({
-            from: fromNodeId,
-            to: toNodeId,
-            type: route.type,
-            routeId: route.id,
-            distance: distance,
-            time: timeMinutes,
-            cost: cost,
-            occupancy: avgOccupancy
+    // Si no hay paradas cercanas a algún punto, intentar encontrar la estación de metro más cercana
+    if (originNearbyStops.length === 0 && metroRoutes && metroRoutes.findNearestStation) {
+      const nearestStation = metroRoutes.findNearestStation(origin.latitude, origin.longitude);
+      if (nearestStation && nearestStation.name) {
+        const station = metroRoutes.metroLinea1Stations[nearestStation.name];
+        if (station) {
+          const stopId = `stop_${nearestStation.name.toLowerCase().replace(/\s+/g, '_')}`;
+          originNearbyStops.push({
+            id: stopId,
+            name: nearestStation.name,
+            coordinates: station.coordinates,
+            routes: ['METRO_L1'],
+            type: 'METRO',
+            distance: nearestStation.distance
           });
+          console.log(`No hay paradas cercanas al origen, usando la estación de metro más cercana: ${nearestStation.name}`);
         }
       }
     }
     
-    // Agregar conexiones de transbordo entre paradas de diferentes rutas
-    for (const route1 of routes) {
-      for (const stop1 of route1.stops || []) {
-        for (const route2 of routes) {
-          // No crear transbordos dentro de la misma ruta
-          if (route1.id === route2.id) continue;
-          
-          for (const stop2 of route2.stops || []) {
-            // Si las paradas tienen el mismo ID o están muy cercanas
-            if (stop1.id === stop2.id || 
-                (stop1.coordinates && stop2.coordinates && 
-                 calculateDistance(
-                   stop1.coordinates.latitude, stop1.coordinates.longitude,
-                   stop2.coordinates.latitude, stop2.coordinates.longitude
-                 ) < 200)) { // Menos de 200 metros
+    if (destNearbyStops.length === 0 && metroRoutes && metroRoutes.findNearestStation) {
+      const nearestStation = metroRoutes.findNearestStation(destination.latitude, destination.longitude);
+      if (nearestStation && nearestStation.name) {
+        const station = metroRoutes.metroLinea1Stations[nearestStation.name];
+        if (station) {
+          const stopId = `stop_${nearestStation.name.toLowerCase().replace(/\s+/g, '_')}`;
+          destNearbyStops.push({
+            id: stopId,
+            name: nearestStation.name,
+            coordinates: station.coordinates,
+            routes: ['METRO_L1'],
+            type: 'METRO',
+            distance: nearestStation.distance
+          });
+          console.log(`No hay paradas cercanas al destino, usando la estación de metro más cercana: ${nearestStation.name}`);
+        }
+      }
+    }
+    
+    // Guardar las paradas cercanas
+    graph.nodes.origin.nearbyStops = originNearbyStops;
+    graph.nodes.destination.nearbyStops = destNearbyStops;
+    
+    // Verificar si hay paradas disponibles
+    if (originNearbyStops.length === 0 || destNearbyStops.length === 0) {
+      console.log('No hay suficientes paradas cercanas para planificar una ruta');
+      return { nodes: {}, edges: [], vehicles: {} };
+    }
+    
+    // Añadir nodos para las paradas
+    for (const stop of originNearbyStops) {
+      const nodeId = `stop:${stop.id}`;
+      graph.nodes[nodeId] = {
+        id: nodeId,
+        stopId: stop.id,
+        type: 'STOP',
+        stopType: stop.type,
+        name: stop.name,
+        routes: stop.routes,
+        coordinates: stop.coordinates
+      };
+      
+      // Añadir arista para caminar desde el origen a la parada
+      graph.edges.push({
+        from: 'origin',
+        to: nodeId,
+        type: 'WALK',
+        distance: stop.distance,
+        time: Math.ceil(stop.distance / 83.33), // ~5 km/h en metros/minuto
+        cost: 0
+      });
+    }
+    
+    for (const stop of destNearbyStops) {
+      const nodeId = `stop:${stop.id}`;
+      
+      // Evitar duplicados si una parada está cerca tanto del origen como del destino
+      if (!graph.nodes[nodeId]) {
+        graph.nodes[nodeId] = {
+          id: nodeId,
+          stopId: stop.id,
+          type: 'STOP',
+          stopType: stop.type,
+          name: stop.name,
+          routes: stop.routes,
+          coordinates: stop.coordinates
+        };
+      }
+      
+      // Añadir arista para caminar desde la parada al destino
+      graph.edges.push({
+        from: nodeId,
+        to: 'destination',
+        type: 'WALK',
+        distance: stop.distance,
+        time: Math.ceil(stop.distance / 83.33), // ~5 km/h
+        cost: 0
+      });
+    }
+    
+    // Obtener rutas de las paradas
+    const routes = new Set();
+    const stopsMap = {};
+    
+    // Recopilar todas las rutas y paradas
+    for (const stop of [...originNearbyStops, ...destNearbyStops]) {
+      const nodeId = `stop:${stop.id}`;
+      stopsMap[stop.id] = stop;
+      
+      for (const routeId of stop.routes) {
+        routes.add(routeId);
+      }
+    }
+    
+    // Datos de rutas y sus recorridos
+    const routeData = {
+      'METRO_L1': {
+        cost: 5.50,
+        type: 'METRO',
+        stops: [
+          'stop_talleres', 'stop_san_bernabe', 'stop_unidad_modelo', 'stop_aztlan', 
+          'stop_penitenciaria', 'stop_alfonso_reyes', 'stop_mitras', 'stop_simon_bolivar', 
+          'stop_hospital', 'stop_edison', 'stop_central', 'stop_cuauhtemoc', 
+          'stop_del_golfo', 'stop_felix_u_gomez', 'stop_parque_fundidora', 'stop_y_griega', 
+          'stop_eloy_cavazos', 'stop_lerdo_de_tejada', 'stop_exposicion'
+        ],
+        travelTimeBetweenStops: 3, // minutos
+        frequency: 4 // cada 4 minutos
+      },
+      'METRO_L2': {
+        cost: 5.50,
+        type: 'METRO',
+        stops: ['stop_general_anaya', 'stop_santa_lucia'],
+        travelTimeBetweenStops: 3,
+        frequency: 5
+      },
+      'ROUTE_1': {
+        cost: 12.00,
+        type: 'BUS',
+        stops: ['stop_macroplaza', 'stop_universidad'],
+        travelTimeBetweenStops: 7,
+        frequency: 12
+      },
+      'ROUTE_17': {
+        cost: 12.00,
+        type: 'BUS',
+        stops: ['stop_macroplaza', 'stop_fundidora_bus'],
+        travelTimeBetweenStops: 10,
+        frequency: 15
+      },
+      'ROUTE_130': {
+        cost: 15.00,
+        type: 'BUS',
+        stops: ['stop_santa_catarina'],
+        travelTimeBetweenStops: 12,
+        frequency: 20
+      }
+    };
+    
+    // Vehículos en operación (simplificados para este ejemplo)
+    const routeVehicles = [
+      { id: 'vm1_01', route: 'METRO_L1', type: 'METRO', status: 'IN_SERVICE', coordinates: { latitude: 25.6987474, longitude: -100.3431880 }, speed: 40, onDuty: true, nextStopId: 'stop_simon_bolivar', delay: 0 },
+      { id: 'vm1_02', route: 'METRO_L1', type: 'METRO', status: 'IN_SERVICE', coordinates: { latitude: 25.68694, longitude: -100.32444 }, speed: 40, onDuty: true, nextStopId: 'stop_central', delay: 1 },
+      { id: 'vm2_01', route: 'METRO_L2', type: 'METRO', status: 'IN_SERVICE', coordinates: { latitude: 25.6798, longitude: -100.3394 }, speed: 40, onDuty: true, nextStopId: 'stop_santa_lucia', delay: 1 },
+      { id: 'vr1_01', route: 'ROUTE_1', type: 'BUS', status: 'IN_SERVICE', coordinates: { latitude: 25.6895, longitude: -100.3163 }, speed: 20, onDuty: true, nextStopId: 'stop_universidad', delay: 3 },
+      { id: 'vr17_01', route: 'ROUTE_17', type: 'BUS', status: 'IN_SERVICE', coordinates: { latitude: 25.6694, longitude: -100.3098 }, speed: 22, onDuty: true, nextStopId: 'stop_macroplaza', delay: 0 }
+    ];
+    
+    // Añadir aristas entre paradas de la misma ruta
+    for (const routeId of routes) {
+      const route = routeData[routeId];
+      if (!route) continue;
+      
+      const routeStops = route.stops;
+      
+      // Crear conexiones entre paradas de la misma ruta (en ambas direcciones)
+      for (let i = 0; i < routeStops.length; i++) {
+        for (let j = 0; j < routeStops.length; j++) {
+          if (i !== j) { // No conectar una parada consigo misma
+            const stopA = stopsMap[routeStops[i]];
+            const stopB = stopsMap[routeStops[j]];
+            
+            if (stopA && stopB) {
+              const nodeA = `stop:${stopA.id}`;
+              const nodeB = `stop:${stopB.id}`;
               
-              const fromNodeId = `${stop1.id}_${route1.id}`;
-              const toNodeId = `${stop2.id}_${route2.id}`;
+              // Calcular distancia
+              const distance = calculateDistance(
+                stopA.coordinates.latitude, 
+                stopA.coordinates.longitude, 
+                stopB.coordinates.latitude, 
+                stopB.coordinates.longitude
+              );
               
-              // Estimar tiempo de transbordo (5 minutos por defecto)
-              const transferTime = 5;
+              // Calcular tiempo basado en la distancia y tipo de transporte
+              const stopsCount = Math.abs(i - j);
+              const time = stopsCount * route.travelTimeBetweenStops;
               
+              // Añadir arista para viajar entre las paradas usando esta ruta
               graph.edges.push({
-                from: fromNodeId,
-                to: toNodeId,
-                type: 'TRANSFER',
-                distance: 0,
-                time: transferTime,
-                cost: 0
+                from: nodeA,
+                to: nodeB,
+                type: route.type,
+                routeId: routeId,
+                distance: distance,
+                time: time,
+                cost: route.cost,
+                occupancy: Math.floor(Math.random() * 80) // 0-80% ocupación, aleatorio
               });
             }
           }
@@ -287,86 +403,92 @@ async function buildTransportGraph(originStops, destinationStops) {
       }
     }
     
-    // Conectar nodo origen con paradas cercanas (caminando)
-    for (const stop of originStops) {
-      const nodeId = `${stop.id}_${stop.routeId}`;
-      if (graph.nodes[nodeId]) {
-        const walkDistance = stop.distance;
-        const walkTime = estimateTravelTime(walkDistance, 'WALK');
+    // Crear conexiones directas para el metro basadas en el orden real de las estaciones
+    if (metroRoutes) {
+      const metroStations = metroRoutes.metroLinea1Stations;
+      const stationNames = Object.keys(metroStations);
+      
+      for (let i = 0; i < stationNames.length; i++) {
+        const fromStation = stationNames[i];
+        const fromStopId = `stop_${fromStation.toLowerCase().replace(/\s+/g, '_')}`;
         
-        graph.edges.push({
-          from: 'ORIGIN',
-          to: nodeId,
-          type: 'WALK',
-          distance: walkDistance,
-          time: walkTime,
-          cost: 0
-        });
+        for (let j = 0; j < stationNames.length; j++) {
+          if (i !== j) {
+            const toStation = stationNames[j];
+            const toStopId = `stop_${toStation.toLowerCase().replace(/\s+/g, '_')}`;
+            
+            // Verificar que ambas estaciones estén en el grafo
+            const fromNodeId = `stop:${fromStopId}`;
+            const toNodeId = `stop:${toStopId}`;
+            
+            if (graph.nodes[fromNodeId] && graph.nodes[toNodeId]) {
+              // Calcular la distancia real entre las estaciones
+              const fromCoord = metroStations[fromStation].coordinates;
+              const toCoord = metroStations[toStation].coordinates;
+              
+              const distance = calculateDistance(
+                fromCoord.latitude, fromCoord.longitude,
+                toCoord.latitude, toCoord.longitude
+              );
+              
+              // Calcular el tiempo basado en la cantidad de estaciones entre ellas
+              const stationsCount = Math.abs(metroStations[fromStation].index - metroStations[toStation].index);
+              const time = stationsCount * 3; // 3 minutos por estación
+              
+              // Añadir la arista directa
+              graph.edges.push({
+                from: fromNodeId,
+                to: toNodeId,
+                type: 'METRO',
+                routeId: 'METRO_L1',
+                distance: distance,
+                time: time,
+                cost: 5.50, // Costo fijo del metro
+                occupancy: Math.floor(Math.random() * 80) // Ocupación aleatoria
+              });
+            }
+          }
+        }
       }
     }
     
-    // Conectar paradas cercanas al destino con nodo destino (caminando)
-    for (const stop of destinationStops) {
-      const nodeId = `${stop.id}_${stop.routeId}`;
-      if (graph.nodes[nodeId]) {
-        const walkDistance = stop.distance;
-        const walkTime = estimateTravelTime(walkDistance, 'WALK');
-        
-        graph.edges.push({
-          from: nodeId,
-          to: 'DESTINATION',
-          type: 'WALK',
-          distance: walkDistance,
-          time: walkTime,
-          cost: 0
-        });
-      }
+    // Agregar vehículos al grafo
+    for (const vehicle of routeVehicles) {
+      const vehicleId = `vehicle:${vehicle.id}`;
+      graph.vehicles[vehicleId] = vehicle;
     }
     
     return graph;
   } catch (error) {
     console.error('Error construyendo grafo de transporte:', error);
-    return { nodes: {}, edges: [] };
+    return { nodes: {}, edges: [], vehicles: {} };
   }
 }
 
 /**
- * Estimar tiempo de viaje basado en distancia y tipo de transporte
- * @param {number} distance - Distancia en metros
- * @param {string} transportType - Tipo de transporte
- * @returns {number} - Tiempo estimado en minutos
+ * Reconstruir una ruta a partir de los nodos visitados
+ * @param {Object} graph - Grafo de transporte
+ * @param {Object} paths - Información de caminos
+ * @param {string} endNodeId - ID del nodo final
+ * @returns {Object} - Ruta reconstruida
  */
-function estimateTravelTime(distance, transportType) {
-  // Velocidades promedio en metros/minuto
-  const speeds = {
-    'WALK': 80,       // 4.8 km/h
-    'BUS': 400,       // 24 km/h
-    'MINIBUS': 350,   // 21 km/h
-    'TRAIN': 800,     // 48 km/h
-    'METRO': 600,     // 36 km/h
-    'PREMIUM_BUS': 450 // 27 km/h
-  };
+function reconstructRoute(graph, paths, endNodeId) {
+  const routePath = paths[endNodeId];
   
-  const speed = speeds[transportType] || speeds['BUS'];
-  return Math.ceil(distance / speed);
-}
-
-/**
- * Calcular tarifa base según tipo de transporte
- * @param {string} transportType - Tipo de transporte
- * @returns {number} - Tarifa base
- */
-function calculateBaseFare(transportType) {
-  const fares = {
-    'WALK': 0,
-    'BUS': 12.00,
-    'MINIBUS': 10.00,
-    'TRAIN': 20.00,
-    'METRO': 15.00,
-    'PREMIUM_BUS': 35.00
-  };
+  if (!routePath || !routePath.segments || routePath.segments.length === 0) {
+    return null;
+  }
   
-  return fares[transportType] || 12.00;
+  // Mejorar segmentos con detalles
+  const enhancedSegments = enhanceSegmentsWithDetails(routePath.segments, graph);
+  
+  return {
+    totalTime: routePath.totalTime,
+    totalDistance: routePath.totalDistance,
+    totalCost: routePath.totalCost,
+    transfers: routePath.transfers,
+    segments: enhancedSegments
+  };
 }
 
 /**
@@ -378,6 +500,14 @@ function calculateBaseFare(transportType) {
  * @returns {Object} - Ruta óptima
  */
 function findOptimalRoute(graph, startNodeId, endNodeId, preferences) {
+  console.log(`Buscando ruta óptima de ${startNodeId} a ${endNodeId} con preferencias:`, preferences);
+  
+  // Validaciones iniciales
+  if (!graph || !graph.nodes || !graph.nodes[startNodeId] || !graph.nodes[endNodeId]) {
+    console.error('Grafo inválido o nodos no encontrados');
+    return null;
+  }
+  
   // Inicializar datos
   const visited = new Set();
   const distances = {};
@@ -391,6 +521,8 @@ function findOptimalRoute(graph, startNodeId, endNodeId, preferences) {
     occupancy: preferences.prioritizeLowOccupancy ? 3 : 1,
     transfers: 1
   };
+  
+  console.log('Pesos aplicados:', weights);
   
   // Establecer valores iniciales
   for (const nodeId in graph.nodes) {
@@ -414,21 +546,25 @@ function findOptimalRoute(graph, startNodeId, endNodeId, preferences) {
     transfers: 0
   };
   
-  while (visited.size < Object.keys(graph.nodes).length) {
-    // Encontrar el nodo con la menor distancia
-    let minDistance = Infinity;
-    let currentNodeId = null;
+  // Cola de prioridad simple
+  const queue = [startNodeId];
+  
+  while (queue.length > 0) {
+    // Ordenar cola por distancia (puntaje combinado)
+    queue.sort((a, b) => distances[a] - distances[b]);
     
-    for (const nodeId in distances) {
-      if (!visited.has(nodeId) && distances[nodeId] < minDistance) {
-        minDistance = distances[nodeId];
-        currentNodeId = nodeId;
-      }
+    // Obtener el nodo con menor distancia
+    const currentNodeId = queue.shift();
+    
+    // Si llegamos al destino, terminar
+    if (currentNodeId === endNodeId) {
+      console.log(`Destino alcanzado con puntaje: ${distances[endNodeId]}`);
+      break;
     }
     
-    // Si no hay más nodos por visitar o ya llegamos al destino
-    if (currentNodeId === null || currentNodeId === endNodeId) {
-      break;
+    // Si ya visitamos este nodo, continuar
+    if (visited.has(currentNodeId)) {
+      continue;
     }
     
     visited.add(currentNodeId);
@@ -436,6 +572,7 @@ function findOptimalRoute(graph, startNodeId, endNodeId, preferences) {
     // Obtener las aristas que salen del nodo actual
     const outgoingEdges = graph.edges.filter(edge => edge.from === currentNodeId);
     
+    // Recorrer vecinos
     for (const edge of outgoingEdges) {
       const neighborId = edge.to;
       
@@ -470,9 +607,16 @@ function findOptimalRoute(graph, startNodeId, endNodeId, preferences) {
         }
       }
       
+      // Calcular tiempo de espera estimado para el vehículo, si aplica
+      let waitTime = 0;
+      if (edge.type !== 'WALK' && edge.type !== 'TRANSFER') {
+        // Obtener el tiempo de espera estimado basado en la posición de los vehículos
+        waitTime = estimateWaitTime(edge, graph.vehicles);
+      }
+      
       // Calcular costos combinados
-      const newTime = currentPath.totalTime + edge.time + (edge.type === 'TRANSFER' ? 0 : transferPenalty);
-      const newCost = currentPath.totalCost + edge.cost;
+      const newTime = currentPath.totalTime + edge.time + transferPenalty + waitTime;
+      const newCost = currentPath.totalCost + (edge.cost || 0);
       const newDistance = currentPath.totalDistance + edge.distance;
       const newTransfers = currentPath.transfers + (transferPenalty > 0 ? 1 : 0);
       
@@ -480,9 +624,14 @@ function findOptimalRoute(graph, startNodeId, endNodeId, preferences) {
       const occupancyFactor = edge.occupancy ? (edge.occupancy / 100) : 0;
       const combinedScore = 
         (newTime * weights.time) + 
-        (newCost * weights.cost) + 
-        (occupancyFactor * weights.occupancy * 30) + // Factor de ocupación
-        (newTransfers * weights.transfers * 10);     // Factor de transbordos
+        (newCost * weights.cost * 5) + // Multiplicador para equilibrar
+        (occupancyFactor * weights.occupancy * 20) + // Factor de ocupación
+        (newTransfers * weights.transfers * 15);     // Factor de transbordos
+      
+      // Log detallado para depuración
+      if (neighborId === endNodeId || neighborId.includes('stop:stop3') || neighborId.includes('stop:stop1')) {
+        console.log(`Evaluando ruta a ${neighborId}: tiempo=${newTime}, costo=${newCost}, transfers=${newTransfers}, score=${combinedScore}`);
+      }
       
       if (combinedScore < distances[neighborId]) {
         distances[neighborId] = combinedScore;
@@ -495,8 +644,10 @@ function findOptimalRoute(graph, startNodeId, endNodeId, preferences) {
           type: edge.type,
           routeId: edge.routeId,
           time: edge.time,
-          cost: edge.cost,
-          distance: edge.distance
+          cost: edge.cost || 0,
+          distance: edge.distance,
+          waitTime: waitTime,
+          vehicleId: edge.nearestVehicleId
         };
         
         // Actualizar información del camino
@@ -507,159 +658,210 @@ function findOptimalRoute(graph, startNodeId, endNodeId, preferences) {
           segments: [...currentPath.segments, newSegment],
           transfers: newTransfers
         };
+        
+        // Añadir vecino a la cola si no está ya
+        if (!queue.includes(neighborId)) {
+          queue.push(neighborId);
+        }
       }
     }
   }
   
-  // Reconstruir la ruta óptima
-  if (!paths[endNodeId] || paths[endNodeId].totalTime === Infinity) {
-    return {
-      found: false,
-      message: "No se encontró una ruta viable"
-    };
+  if (previous[endNodeId] === null) {
+    console.error('No se encontró ruta al destino');
+    return null; // No hay ruta al destino
   }
   
-  // Consolidar segmentos del mismo tipo/ruta consecutivos
-  const consolidatedSegments = [];
-  let currentConsolidatedSegment = null;
-  
-  for (const segment of paths[endNodeId].segments) {
-    if (!currentConsolidatedSegment) {
-      currentConsolidatedSegment = { ...segment };
-    } else if (
-      currentConsolidatedSegment.type === segment.type && 
-      currentConsolidatedSegment.routeId === segment.routeId
-    ) {
-      // Extender el segmento actual
-      currentConsolidatedSegment.to = segment.to;
-      currentConsolidatedSegment.time += segment.time;
-      currentConsolidatedSegment.cost += segment.cost;
-      currentConsolidatedSegment.distance += segment.distance;
-    } else {
-      // Guardar el segmento consolidado anterior y empezar uno nuevo
-      consolidatedSegments.push(currentConsolidatedSegment);
-      currentConsolidatedSegment = { ...segment };
-    }
-  }
-  
-  // Añadir el último segmento
-  if (currentConsolidatedSegment) {
-    consolidatedSegments.push(currentConsolidatedSegment);
-  }
-  
-  // Formatear los segmentos para la respuesta
-  const formattedSegments = consolidatedSegments.map(segment => {
-    const fromNode = graph.nodes[segment.from];
-    const toNode = graph.nodes[segment.to];
-    
-    let description = '';
-    if (segment.type === 'WALK') {
-      description = `Caminar ${(segment.distance / 1000).toFixed(1)} km hacia ${toNode.stopName || 'destino'}`;
-    } else if (segment.type === 'TRANSFER') {
-      description = `Transbordar hacia ${toNode.routeName || 'otra ruta'}`;
-    } else {
-      description = `Tomar ${segment.type} ${segment.routeId} hacia ${toNode.stopName || 'destino'}`;
-    }
-    
-    return {
-      type: segment.type,
-      routeId: segment.routeId,
-      routeName: segment.type !== 'WALK' && segment.type !== 'TRANSFER' ? 
-                 (fromNode?.routeName || toNode?.routeName || 'Unknown') : null,
-      from: fromNode?.stopName || 'Origen',
-      to: toNode?.stopName || 'Destino',
-      time: segment.time,
-      distance: segment.distance,
-      cost: segment.cost,
-      description: description
-    };
-  });
-  
-  return {
-    found: true,
-    totalTime: paths[endNodeId].totalTime,
-    totalCost: paths[endNodeId].totalCost,
-    totalDistance: paths[endNodeId].totalDistance,
-    segments: formattedSegments,
-    transfers: paths[endNodeId].transfers
-  };
+  // Reconstruir y mejorar la ruta
+  return reconstructRoute(graph, paths, endNodeId);
 }
 
 /**
- * Calcular la ruta óptima combinando diferentes transportes
- * @param {Object} origin - Coordenadas de origen
- * @param {Object} destination - Coordenadas de destino
- * @param {Object} preferences - Preferencias del usuario
- * @returns {Object} - Plan del viaje
+ * Estimar tiempo de espera para un vehículo en una arista de transporte
+ * @param {Object} edge - Arista del grafo
+ * @param {Object} vehicles - Vehículos disponibles
+ * @returns {number} - Tiempo estimado de espera en minutos
  */
-async function calculateOptimalTrip(origin, destination, preferences) {
+function estimateWaitTime(edge, vehicles) {
+  if (!edge || !edge.routeId || !vehicles) {
+    return 5; // Por defecto, 5 minutos
+  }
+  
+  // Encontrar vehículos en la misma ruta
+  const routeVehicles = Object.values(vehicles).filter(v => 
+    v.route === edge.routeId && 
+    v.status === 'IN_SERVICE' && 
+    v.onDuty);
+  
+  if (routeVehicles.length === 0) {
+    return 8; // No hay vehículos activos, asumimos frecuencia default
+  }
+  
+  // Para este ejemplo simplificado, devolveremos un tiempo aleatorio entre 1 y 10 minutos,
+  // simulando el tiempo de espera basado en la posición de los vehículos
+  const minTime = Math.floor(Math.random() * 10) + 1;
+  
+  // Guardar la referencia al vehículo "más cercano"
+  edge.nearestVehicleId = routeVehicles[0].id;
+  
+  return minTime;
+}
+
+/**
+ * Mejorar los segmentos con detalles adicionales
+ * @param {Array} segments - Segmentos de la ruta
+ * @param {Object} graph - Grafo de transporte
+ * @returns {Array} - Segmentos mejorados
+ */
+function enhanceSegmentsWithDetails(segments, graph) {
   try {
-    // 1. Encontrar paradas cercanas al origen y destino
-    const nearbyStopsOrigin = await findNearbyStops(origin, 800); // 800m radio
-    const nearbyStopsDestination = await findNearbyStops(destination, 800);
-    
-    if (nearbyStopsOrigin.length === 0 || nearbyStopsDestination.length === 0) {
-      return {
-        success: false,
-        message: "No se encontraron paradas cercanas al origen o destino"
-      };
-    }
-    
-    // 2. Construir grafo de transporte
-    const transportGraph = await buildTransportGraph(nearbyStopsOrigin, nearbyStopsDestination);
-    
-    // 3. Calcular ruta óptima
-    const optimalRoute = findOptimalRoute(transportGraph, 'ORIGIN', 'DESTINATION', preferences);
-    
-    if (!optimalRoute.found) {
-      return {
-        success: false,
-        message: "No se pudo encontrar una ruta válida entre el origen y el destino"
-      };
-    }
-    
-    // 4. Formatear resultado
-    return {
-      success: true,
-      origin: {
-        latitude: origin.latitude,
-        longitude: origin.longitude,
-        nearbyStops: nearbyStopsOrigin.slice(0, 3).map(stop => ({
-          id: stop.id,
-          name: stop.name,
-          distance: Math.round(stop.distance),
-          routeId: stop.routeId,
-          routeName: stop.routeName
-        }))
-      },
-      destination: {
-        latitude: destination.latitude,
-        longitude: destination.longitude,
-        nearbyStops: nearbyStopsDestination.slice(0, 3).map(stop => ({
-          id: stop.id,
-          name: stop.name,
-          distance: Math.round(stop.distance),
-          routeId: stop.routeId,
-          routeName: stop.routeName
-        }))
-      },
-      route: {
-        totalTime: optimalRoute.totalTime,
-        totalCost: optimalRoute.totalCost,
-        totalDistance: Math.round(optimalRoute.totalDistance),
-        transfers: optimalRoute.transfers,
-        segments: optimalRoute.segments
+    return segments.map(segment => {
+      const fromNode = graph.nodes[segment.from];
+      const toNode = graph.nodes[segment.to];
+      
+      if (!fromNode || !toNode) {
+        console.error(`Nodos no encontrados: ${segment.from} o ${segment.to}`);
+        return segment;
       }
-    };
+      
+      const enhancedSegment = {
+        ...segment,
+        fromName: fromNode.name || fromNode.id,
+        toName: toNode.name || toNode.id,
+        path: []
+      };
+      
+      // Generar path entre puntos
+      if (fromNode.coordinates && toNode.coordinates) {
+        const fromLat = fromNode.coordinates.latitude;
+        const fromLng = fromNode.coordinates.longitude;
+        const toLat = toNode.coordinates.latitude;
+        const toLng = toNode.coordinates.longitude;
+        
+        enhancedSegment.path.push({
+          latitude: fromLat,
+          longitude: fromLng
+        });
+        
+        // Para segmentos de metro, intentar usar rutas precisas
+        if (segment.type === 'METRO' && segment.routeId && metroRoutes) {
+          console.log(`Buscando ruta precisa de metro para ${segment.routeId} entre ${enhancedSegment.fromName} y ${enhancedSegment.toName}`);
+          
+          try {
+            // Extraer nombre de la estación de los IDs de nodo (stop:stopX)
+            const startStationName = enhancedSegment.fromName;
+            const endStationName = enhancedSegment.toName;
+            
+            // Intentar obtener ruta precisa
+            if (metroRoutes.findRouteSegment) {
+              const routePolyline = metroRoutes.findRouteSegment(
+                segment.routeId, 
+                startStationName, 
+                endStationName
+              );
+              
+              if (routePolyline && routePolyline.length > 0) {
+                console.log(`Encontrada ruta precisa con ${routePolyline.length} puntos`);
+                // Usar la ruta precisa
+                enhancedSegment.path = routePolyline.map(point => ({
+                  latitude: point.latitude,
+                  longitude: point.longitude
+                }));
+              } else {
+                console.log(`No se encontró ruta precisa, usando aproximación simple`);
+                addSimplePath(enhancedSegment, fromLat, fromLng, toLat, toLng, segment);
+              }
+            } else {
+              console.log('metroRoutes.findRouteSegment no está disponible');
+              addSimplePath(enhancedSegment, fromLat, fromLng, toLat, toLng, segment);
+            }
+          } catch (error) {
+            console.error('Error al buscar ruta precisa de metro:', error);
+            addSimplePath(enhancedSegment, fromLat, fromLng, toLat, toLng, segment);
+          }
+        } else {
+          // Para otros tipos de transporte, usar aproximación simple
+          addSimplePath(enhancedSegment, fromLat, fromLng, toLat, toLng, segment);
+        }
+      }
+      
+      // Si es un segmento de transporte, añadir el nombre de la ruta
+      if (segment.routeId) {
+        // En un caso real, buscaríamos el nombre de la ruta en la base de datos
+        const routeNames = {
+          'METRO_L1': 'Línea 1',
+          'METRO_L2': 'Línea 2',
+          'ROUTE_1': 'Ruta 1',
+          'ROUTE_17': 'Ruta 17',
+          'ROUTE_130': 'Ruta 130'
+        };
+        
+        enhancedSegment.routeName = routeNames[segment.routeId] || segment.routeId;
+      }
+      
+      // Añadir una descripción basada en el tipo de segmento
+      enhancedSegment.description = getSegmentDescription(enhancedSegment);
+      
+      return enhancedSegment;
+    });
   } catch (error) {
-    console.error('Error calculando ruta óptima:', error);
-    return {
-      success: false,
-      message: `Error en el cálculo de ruta: ${error.message}`
-    };
+    console.error('Error al mejorar segmentos:', error);
+    return segments;
   }
 }
 
+/**
+ * Añadir un path simple entre dos puntos
+ */
+function addSimplePath(segment, fromLat, fromLng, toLat, toLng, originalSegment) {
+  // Ya tenemos el punto inicial
+  
+  // Si la distancia es significativa, añadir un punto intermedio
+  if (originalSegment.distance > 1000) {
+    const midLat = (fromLat + toLat) / 2;
+    const midLng = (fromLng + toLng) / 2;
+    
+    // Añadir un ligero desplazamiento para rutas que no son caminatas
+    const offset = originalSegment.type !== 'WALK' ? 0.002 : 0;
+    
+    segment.path.push({
+      latitude: midLat + offset,
+      longitude: midLng - offset
+    });
+  }
+  
+  // Añadir punto final
+  segment.path.push({
+    latitude: toLat,
+    longitude: toLng
+  });
+}
+
+/**
+ * Generar descripción para un segmento de ruta
+ * @param {Object} segment - Segmento de ruta
+ * @returns {string} - Descripción del segmento
+ */
+function getSegmentDescription(segment) {
+  switch (segment.type) {
+    case 'WALK':
+      return `Caminar ${(segment.distance/1000).toFixed(2)} km (aprox. ${segment.time} min) desde ${segment.fromName} hasta ${segment.toName}`;
+    case 'BUS':
+      return `Tomar el autobús ${segment.routeName || segment.routeId} en ${segment.fromName} y bajar en ${segment.toName} (${segment.time} min)`;
+    case 'METRO':
+      return `Tomar el metro ${segment.routeName || segment.routeId} en ${segment.fromName} y bajar en ${segment.toName} (${segment.time} min)`;
+    case 'MINIBUS':
+      return `Tomar el minibús ${segment.routeName || segment.routeId} en ${segment.fromName} y bajar en ${segment.toName} (${segment.time} min)`;
+    case 'TRANSFER':
+      return `Transbordar de ${segment.fromName} a ${segment.toName}`;
+    default:
+      return `Viajar de ${segment.fromName} a ${segment.toName}`;
+  }
+}
+
+// Exportar las funciones
 module.exports = {
-  planTrip
+  planTrip,
+  findNearbyStops,
+  calculateDistance
 }; 

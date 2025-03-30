@@ -1,511 +1,667 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planificador de Rutas de Transporte</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        
-        h1 {
-            text-align: center;
-            color: #0078d7;
-            margin-bottom: 30px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        
-        input, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        
-        .coords-group {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .coords-group input {
-            flex: 1;
-        }
-        
-        button {
-            background-color: #0078d7;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            font-size: 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-            transition: background-color 0.3s;
-        }
-        
-        button:hover {
-            background-color: #0056a3;
-        }
-        
-        .results {
-            margin-top: 30px;
-            display: none;
-        }
-        
-        .segment {
-            background-color: #f9f9f9;
-            border-left: 4px solid #0078d7;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 0 5px 5px 0;
-        }
-        
-        .segment.WALK { border-left-color: #009688; }
-        .segment.BUS { border-left-color: #2196F3; }
-        .segment.MINIBUS { border-left-color: #03A9F4; }
-        .segment.TRAIN { border-left-color: #FF5722; }
-        .segment.METRO { border-left-color: #F44336; }
-        .segment.TRANSFER { border-left-color: #9E9E9E; }
-        
-        .segment-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-        
-        .segment-type {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-size: 14px;
-            color: white;
-        }
-        
-        .segment-type.WALK { background-color: #009688; }
-        .segment-type.BUS { background-color: #2196F3; }
-        .segment-type.MINIBUS { background-color: #03A9F4; }
-        .segment-type.TRAIN { background-color: #FF5722; }
-        .segment-type.METRO { background-color: #F44336; }
-        .segment-type.TRANSFER { background-color: #9E9E9E; }
-        
-        .segment-details {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #555;
-        }
-        
-        .trip-summary {
-            background-color: #e9f7ff;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .trip-stats {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-        }
-        
-        .trip-stat {
-            text-align: center;
-            flex: 1;
-        }
-        
-        .trip-stat span {
-            display: block;
-            font-size: 24px;
-            font-weight: bold;
-            color: #0078d7;
-        }
-        
-        .trip-stat label {
-            font-size: 14px;
-            color: #666;
-        }
-        
-        .nearby-stops {
-            margin-top: 10px;
-            font-size: 14px;
-        }
-        
-        .nearby-stop {
-            margin-bottom: 5px;
-        }
-        
-        .error-message {
-            background-color: #ffebee;
-            color: #d32f2f;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        .preference-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .preference-item {
-            flex: 1;
-            min-width: 200px;
-        }
-        
-        .checkbox-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            background-color: #f0f0f0;
-            padding: 5px 10px;
-            border-radius: 4px;
-        }
-        
-        .checkbox-item input[type="checkbox"] {
-            width: auto;
-            margin-right: 5px;
-        }
-        
-        @media (max-width: 768px) {
-            .coords-group {
-                flex-direction: column;
-            }
-            
-            .preference-item {
-                min-width: 100%;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planificador de Rutas - Monterrey</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+    
+    .map-container {
+      height: 70vh;
+      width: 100%;
+      position: relative;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    #map {
+      height: 100%;
+      width: 100%;
+      z-index: 0;
+    }
+    
+    .options-panel {
+      padding: 1rem;
+      background-color: #f8f9fa;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .route-info {
+      padding: 1.5rem;
+      background-color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      margin-top: 1rem;
+    }
+    
+    .segment {
+      padding: 1rem;
+      margin-bottom: 0.5rem;
+      border-radius: 0.5rem;
+      position: relative;
+    }
+    
+    .segment-walk {
+      background-color: #e9ecef;
+    }
+    
+    .segment-bus {
+      background-color: #d1e7dd;
+    }
+    
+    .segment-metro {
+      background-color: #cfe2ff;
+    }
+    
+    .segment-minibus {
+      background-color: #f8d7da;
+    }
+    
+    .segment-icon {
+      display: inline-block;
+      width: 2rem;
+      height: 2rem;
+      line-height: 2rem;
+      text-align: center;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      color: white;
+      font-weight: bold;
+    }
+    
+    .icon-walk {
+      background-color: #6c757d;
+    }
+    
+    .icon-bus {
+      background-color: #198754;
+    }
+    
+    .icon-metro {
+      background-color: #0d6efd;
+    }
+    
+    .icon-minibus {
+      background-color: #dc3545;
+    }
+    
+    .loader {
+      display: none;
+      border: 5px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 5px solid #3498db;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .route-stats {
+      display: flex;
+      justify-content: space-between;
+      padding: 1rem;
+      background-color: #f8f9fa;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    
+    .stat-label {
+      font-size: 0.8rem;
+      color: #6c757d;
+    }
+    
+    @media (max-width: 768px) {
+      .map-container {
+        height: 50vh;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Planificador de Rutas de Transporte</h1>
-        
-        <div class="error-message" id="errorMessage"></div>
-        
-        <form id="routePlannerForm">
-            <div class="form-group">
-                <label for="origin">Origen</label>
-                <div class="coords-group">
-                    <input type="number" id="originLat" placeholder="Latitud" step="0.000001" required>
-                    <input type="number" id="originLng" placeholder="Longitud" step="0.000001" required>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="destination">Destino</label>
-                <div class="coords-group">
-                    <input type="number" id="destLat" placeholder="Latitud" step="0.000001" required>
-                    <input type="number" id="destLng" placeholder="Longitud" step="0.000001" required>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label>Preferencias</label>
-                <div class="preference-group">
-                    <div class="preference-item">
-                        <label for="maxWalkingDistance">Distancia máxima a pie (metros)</label>
-                        <input type="number" id="maxWalkingDistance" value="800" min="100" max="5000">
-                    </div>
-                    
-                    <div class="preference-item">
-                        <label for="maxTransfers">Número máximo de transbordos</label>
-                        <input type="number" id="maxTransfers" value="2" min="0" max="5">
-                    </div>
-                </div>
-                
-                <div class="preference-group">
-                    <div class="preference-item">
-                        <label>Priorizar por:</label>
-                        <div class="checkbox-group">
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="prioritizeFastRoute" checked>
-                                <label for="prioritizeFastRoute">Ruta más rápida</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="prioritizeLowCost">
-                                <label for="prioritizeLowCost">Menor costo</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="prioritizeLowOccupancy">
-                                <label for="prioritizeLowOccupancy">Menor ocupación</label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="preference-item">
-                        <label>Tipos de transporte:</label>
-                        <div class="checkbox-group">
-                            <div class="checkbox-item">
-                                <input type="checkbox" name="transportType" value="BUS" checked>
-                                <label>Autobús</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" name="transportType" value="METRO" checked>
-                                <label>Metro</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" name="transportType" value="TRAIN" checked>
-                                <label>Tren</label>
-                            </div>
-                            <div class="checkbox-item">
-                                <input type="checkbox" name="transportType" value="WALK" checked>
-                                <label>Caminar</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <button type="submit">Calcular Ruta</button>
-        </form>
-        
-        <div class="results" id="results">
-            <div class="trip-summary" id="tripSummary">
-                <h2>Resumen del viaje</h2>
-                <div class="trip-stats">
-                    <div class="trip-stat">
-                        <span id="totalTime">--</span>
-                        <label>Minutos</label>
-                    </div>
-                    <div class="trip-stat">
-                        <span id="totalDistance">--</span>
-                        <label>Kilómetros</label>
-                    </div>
-                    <div class="trip-stat">
-                        <span id="totalCost">--</span>
-                        <label>Pesos</label>
-                    </div>
-                    <div class="trip-stat">
-                        <span id="totalTransfers">--</span>
-                        <label>Transbordos</label>
-                    </div>
-                </div>
-                
-                <div class="nearby-stops">
-                    <h3>Paradas cercanas al origen:</h3>
-                    <div id="originStops"></div>
-                    
-                    <h3>Paradas cercanas al destino:</h3>
-                    <div id="destinationStops"></div>
-                </div>
-            </div>
-            
-            <h2>Ruta sugerida</h2>
-            <div id="segments"></div>
-        </div>
-    </div>
+  <div class="container py-4">
+    <h1 class="mb-4 text-center">Planificador de Rutas de Transporte</h1>
+    <h3 class="text-center mb-4">Ciudad de Monterrey</h3>
     
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Para pruebas, llenar con valores por defecto
-            document.getElementById('originLat').value = '19.432608';
-            document.getElementById('originLng').value = '-99.133209';
-            document.getElementById('destLat').value = '19.414562';
-            document.getElementById('destLng').value = '-99.167721';
+    <div class="row">
+      <div class="col-md-4">
+        <div class="options-panel">
+          <h4 class="mb-3">Opciones de ruta</h4>
+          
+          <form id="route-form">
+            <div class="mb-3">
+              <label for="origin" class="form-label">Origen:</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="origin-lat" placeholder="Latitud" required>
+                <input type="text" class="form-control" id="origin-lng" placeholder="Longitud" required>
+                <button type="button" class="btn btn-outline-secondary" id="select-origin">
+                  <i class="bi bi-geo-alt-fill"></i> Mapa
+                </button>
+              </div>
+            </div>
             
-            const form = document.getElementById('routePlannerForm');
-            const results = document.getElementById('results');
-            const errorMessage = document.getElementById('errorMessage');
+            <div class="mb-3">
+              <label for="destination" class="form-label">Destino:</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="destination-lat" placeholder="Latitud" required>
+                <input type="text" class="form-control" id="destination-lng" placeholder="Longitud" required>
+                <button type="button" class="btn btn-outline-secondary" id="select-destination">
+                  <i class="bi bi-geo-alt-fill"></i> Mapa
+                </button>
+              </div>
+            </div>
             
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                // Recopilar datos del formulario
-                const origin = {
-                    latitude: parseFloat(document.getElementById('originLat').value),
-                    longitude: parseFloat(document.getElementById('originLng').value)
-                };
-                
-                const destination = {
-                    latitude: parseFloat(document.getElementById('destLat').value),
-                    longitude: parseFloat(document.getElementById('destLng').value)
-                };
-                
-                // Recopilar preferencias
-                const transportTypeCheckboxes = document.querySelectorAll('input[name="transportType"]:checked');
-                const transportTypes = Array.from(transportTypeCheckboxes).map(cb => cb.value);
-                
-                const preferences = {
-                    maxWalkingDistance: parseInt(document.getElementById('maxWalkingDistance').value),
-                    prioritizeFastRoute: document.getElementById('prioritizeFastRoute').checked,
-                    prioritizeLowCost: document.getElementById('prioritizeLowCost').checked,
-                    prioritizeLowOccupancy: document.getElementById('prioritizeLowOccupancy').checked,
-                    maxTransfers: parseInt(document.getElementById('maxTransfers').value),
-                    transportTypes: transportTypes
-                };
-                
-                try {
-                    // Limpiar mensajes anteriores
-                    errorMessage.style.display = 'none';
-                    
-                    // Construir el cuerpo de la solicitud
-                    const requestBody = {
-                        origin,
-                        destination,
-                        preferences
-                    };
-                    
-                    // Hacer la solicitud a la API
-                    const response = await fetch('/api/trips/plan', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(requestBody)
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (!response.ok || !data.success) {
-                        throw new Error(data.message || 'Error al calcular la ruta');
-                    }
-                    
-                    // Mostrar resultados
-                    displayResults(data.trip);
-                } catch (error) {
-                    console.error('Error:', error);
-                    errorMessage.textContent = error.message || 'Ocurrió un error inesperado';
-                    errorMessage.style.display = 'block';
-                    results.style.display = 'none';
-                }
-            });
+            <div class="mb-3">
+              <label class="form-label">Tipos de transporte:</label>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="bus-checkbox" checked>
+                <label class="form-check-label" for="bus-checkbox">Bus</label>
+              </div>
+              
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="metro-checkbox" checked>
+                <label class="form-check-label" for="metro-checkbox">Metro</label>
+              </div>
+              
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="minibus-checkbox" checked>
+                <label class="form-check-label" for="minibus-checkbox">Minibús</label>
+              </div>
+              
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="walk-checkbox" checked>
+                <label class="form-check-label" for="walk-checkbox">Caminar</label>
+              </div>
+            </div>
             
-            function displayResults(tripData) {
-                if (!tripData || !tripData.success) {
-                    errorMessage.textContent = tripData?.message || 'No se pudieron encontrar resultados';
-                    errorMessage.style.display = 'block';
-                    results.style.display = 'none';
-                    return;
-                }
-                
-                // Mostrar estadísticas del viaje
-                document.getElementById('totalTime').textContent = tripData.route.totalTime;
-                document.getElementById('totalDistance').textContent = (tripData.route.totalDistance / 1000).toFixed(1);
-                document.getElementById('totalCost').textContent = tripData.route.totalCost.toFixed(2);
-                document.getElementById('totalTransfers').textContent = tripData.route.transfers;
-                
-                // Mostrar paradas cercanas al origen
-                const originStopsContainer = document.getElementById('originStops');
-                originStopsContainer.innerHTML = '';
-                
-                tripData.origin.nearbyStops.forEach(stop => {
-                    const stopElement = document.createElement('div');
-                    stopElement.className = 'nearby-stop';
-                    stopElement.textContent = `${stop.name} (${stop.distance}m) - Ruta: ${stop.routeName}`;
-                    originStopsContainer.appendChild(stopElement);
-                });
-                
-                // Mostrar paradas cercanas al destino
-                const destinationStopsContainer = document.getElementById('destinationStops');
-                destinationStopsContainer.innerHTML = '';
-                
-                tripData.destination.nearbyStops.forEach(stop => {
-                    const stopElement = document.createElement('div');
-                    stopElement.className = 'nearby-stop';
-                    stopElement.textContent = `${stop.name} (${stop.distance}m) - Ruta: ${stop.routeName}`;
-                    destinationStopsContainer.appendChild(stopElement);
-                });
-                
-                // Mostrar segmentos de la ruta
-                const segmentsContainer = document.getElementById('segments');
-                segmentsContainer.innerHTML = '';
-                
-                tripData.route.segments.forEach(segment => {
-                    const segmentElement = document.createElement('div');
-                    segmentElement.className = `segment ${segment.type}`;
-                    
-                    const segmentHeader = document.createElement('div');
-                    segmentHeader.className = 'segment-header';
-                    
-                    const segmentTitle = document.createElement('div');
-                    segmentTitle.innerHTML = `<span class="segment-type ${segment.type}">${getTransportTypeName(segment.type)}</span> ${segment.from} → ${segment.to}`;
-                    
-                    const segmentTime = document.createElement('div');
-                    segmentTime.textContent = `${segment.time} min`;
-                    
-                    segmentHeader.appendChild(segmentTitle);
-                    segmentHeader.appendChild(segmentTime);
-                    
-                    const segmentDescription = document.createElement('div');
-                    segmentDescription.textContent = segment.description;
-                    
-                    const segmentDetails = document.createElement('div');
-                    segmentDetails.className = 'segment-details';
-                    
-                    let detailsText = `Distancia: ${(segment.distance / 1000).toFixed(2)} km`;
-                    
-                    if (segment.cost > 0) {
-                        detailsText += ` • Costo: $${segment.cost.toFixed(2)}`;
-                    }
-                    
-                    if (segment.routeName) {
-                        detailsText += ` • Ruta: ${segment.routeName}`;
-                    }
-                    
-                    segmentDetails.textContent = detailsText;
-                    
-                    segmentElement.appendChild(segmentHeader);
-                    segmentElement.appendChild(segmentDescription);
-                    segmentElement.appendChild(segmentDetails);
-                    
-                    segmentsContainer.appendChild(segmentElement);
-                });
-                
-                // Mostrar el contenedor de resultados
-                results.style.display = 'block';
-            }
+            <div class="mb-3">
+              <label for="max-walking" class="form-label">Distancia máxima para caminar (metros):</label>
+              <input type="range" class="form-range" id="max-walking" min="200" max="2000" step="100" value="800">
+              <div class="d-flex justify-content-between">
+                <small>200m</small>
+                <small id="walking-value">800m</small>
+                <small>2000m</small>
+              </div>
+            </div>
             
-            function getTransportTypeName(type) {
-                const types = {
-                    'WALK': 'Caminar',
-                    'BUS': 'Autobús',
-                    'MINIBUS': 'Minibús',
-                    'TRAIN': 'Tren',
-                    'METRO': 'Metro',
-                    'PREMIUM_BUS': 'Autobús Premium',
-                    'TRANSFER': 'Transbordo'
-                };
-                
-                return types[type] || type;
-            }
+            <div class="mb-3">
+              <label class="form-label">Priorizar:</label>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="fast-route-checkbox" checked>
+                <label class="form-check-label" for="fast-route-checkbox">Ruta más rápida</label>
+              </div>
+              
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="low-cost-checkbox">
+                <label class="form-check-label" for="low-cost-checkbox">Menor costo</label>
+              </div>
+              
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="low-occupancy-checkbox">
+                <label class="form-check-label" for="low-occupancy-checkbox">Menor ocupación</label>
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="max-transfers" class="form-label">Máximo de transbordos:</label>
+              <select class="form-select" id="max-transfers">
+                <option value="0">0 (sin transbordos)</option>
+                <option value="1">1 transbordo</option>
+                <option value="2" selected>2 transbordos</option>
+                <option value="3">3 transbordos</option>
+                <option value="4">4 transbordos</option>
+              </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-100">Buscar Ruta</button>
+          </form>
+        </div>
+      </div>
+      
+      <div class="col-md-8">
+        <div class="map-container">
+          <div id="map"></div>
+        </div>
+        
+        <div class="loader" id="loader"></div>
+        
+        <div id="route-results" style="display: none;">
+          <div class="route-stats" id="route-stats">
+            <div class="stat-item">
+              <div class="stat-value" id="total-time">--</div>
+              <div class="stat-label">Minutos</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="total-cost">--</div>
+              <div class="stat-label">Pesos</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="total-distance">--</div>
+              <div class="stat-label">Kilómetros</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="total-transfers">--</div>
+              <div class="stat-label">Transbordos</div>
+            </div>
+          </div>
+          
+          <div class="route-info">
+            <h4 class="mb-3">Tu ruta</h4>
+            <div id="route-segments"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script>
+    // Variables globales
+    let map;
+    let originMarker = null;
+    let destinationMarker = null;
+    let routeLayers = [];
+    let selectingOrigin = false;
+    let selectingDestination = false;
+    
+    // Coordenadas de Monterrey (centrar mapa)
+    const MONTERREY_LAT = 25.6866;
+    const MONTERREY_LNG = -100.3161;
+    
+    // Colores para los tipos de transporte
+    const transportColors = {
+      BUS: '#198754',
+      METRO: '#0d6efd',
+      MINIBUS: '#dc3545',
+      WALK: '#6c757d'
+    };
+    
+    // Inicializar mapa
+    function initMap() {
+      map = L.map('map').setView([MONTERREY_LAT, MONTERREY_LNG], 13);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+      
+      // Evento de clic en el mapa
+      map.on('click', function(e) {
+        if (selectingOrigin) {
+          setOrigin(e.latlng.lat, e.latlng.lng);
+          selectingOrigin = false;
+        } else if (selectingDestination) {
+          setDestination(e.latlng.lat, e.latlng.lng);
+          selectingDestination = false;
+        }
+      });
+    }
+    
+    // Configurar origen
+    function setOrigin(lat, lng) {
+      document.getElementById('origin-lat').value = lat.toFixed(6);
+      document.getElementById('origin-lng').value = lng.toFixed(6);
+      
+      // Actualizar marcador en el mapa
+      if (originMarker) {
+        map.removeLayer(originMarker);
+      }
+      
+      originMarker = L.marker([lat, lng], {
+        draggable: true,
+        icon: createCustomIcon('green', 'A')
+      }).addTo(map);
+      
+      originMarker.on('dragend', function(e) {
+        const position = e.target.getLatLng();
+        document.getElementById('origin-lat').value = position.lat.toFixed(6);
+        document.getElementById('origin-lng').value = position.lng.toFixed(6);
+      });
+    }
+    
+    // Configurar destino
+    function setDestination(lat, lng) {
+      document.getElementById('destination-lat').value = lat.toFixed(6);
+      document.getElementById('destination-lng').value = lng.toFixed(6);
+      
+      // Actualizar marcador en el mapa
+      if (destinationMarker) {
+        map.removeLayer(destinationMarker);
+      }
+      
+      destinationMarker = L.marker([lat, lng], {
+        draggable: true,
+        icon: createCustomIcon('red', 'B')
+      }).addTo(map);
+      
+      destinationMarker.on('dragend', function(e) {
+        const position = e.target.getLatLng();
+        document.getElementById('destination-lat').value = position.lat.toFixed(6);
+        document.getElementById('destination-lng').value = position.lng.toFixed(6);
+      });
+    }
+    
+    // Crear ícono personalizado
+    function createCustomIcon(color, text) {
+      return L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div style="background-color: ${color}; width: 30px; height: 30px; border-radius: 50%; color: white; text-align: center; line-height: 30px; font-weight: bold;">${text}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+    }
+    
+    // Limpiar rutas previas
+    function clearRoutes() {
+      for (const layer of routeLayers) {
+        map.removeLayer(layer);
+      }
+      routeLayers = [];
+      document.getElementById('route-segments').innerHTML = '';
+      document.getElementById('route-results').style.display = 'none';
+    }
+    
+    // Dibujar ruta en el mapa
+    function drawRoute(response) {
+      // Limpiar rutas anteriores
+      for (const layer of routeLayers) {
+        map.removeLayer(layer);
+      }
+      routeLayers = [];
+      
+      if (!response || (!response.segments && !response.data)) {
+        document.getElementById('route-results').innerHTML = `
+          <div class="alert alert-warning">
+            No se pudo encontrar una ruta entre los puntos seleccionados.
+          </div>
+        `;
+        document.getElementById('route-results').style.display = 'block';
+        return;
+      }
+      
+      // Obtener datos de la respuesta considerando el formato revisado
+      const trip = response.data || response;
+      const segments = trip.segments || [];
+      const totalDistance = trip.totalDistance || 0;
+      const totalTime = trip.totalTime || 0;
+      const totalCost = trip.totalCost || 0;
+      
+      // Mostrar estadísticas de la ruta
+      const resultsDiv = document.getElementById('route-results');
+      resultsDiv.style.display = 'block';
+      
+      resultsDiv.innerHTML = `
+        <div class="route-stats">
+          <div class="stat-item">
+            <div class="stat-value">${(totalDistance / 1000).toFixed(2)}</div>
+            <div class="stat-label">Distancia (km)</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">${totalTime}</div>
+            <div class="stat-label">Tiempo (min)</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">$${totalCost.toFixed(2)}</div>
+            <div class="stat-label">Costo (MXN)</div>
+          </div>
+        </div>
+        <div id="segments-container" class="segments-container"></div>
+      `;
+      
+      const segmentsContainer = document.getElementById('segments-container');
+      
+      // Agregar cada segmento
+      for (const segment of segments) {
+        // Crear div del segmento
+        const segmentDiv = document.createElement('div');
+        segmentDiv.className = `segment segment-${segment.type.toLowerCase()}`;
+        
+        let iconClass = '';
+        switch (segment.type) {
+          case 'WALK': iconClass = 'icon-walk'; break;
+          case 'BUS': iconClass = 'icon-bus'; break;
+          case 'METRO': iconClass = 'icon-metro'; break;
+          case 'MINIBUS': iconClass = 'icon-minibus'; break;
+          default: iconClass = 'icon-walk';
+        }
+        
+        segmentDiv.innerHTML = `
+          <div class="segment-icon ${iconClass}">${segment.type.charAt(0)}</div>
+          <div class="segment-info">
+            <h5>${getSegmentTitle(segment)}</h5>
+            <p>Desde: ${segment.fromName}</p>
+            <p>Hasta: ${segment.toName}</p>
+            <p>Distancia: ${(segment.distance / 1000).toFixed(2)} km</p>
+            <p>Tiempo: ${segment.time} minutos</p>
+            ${segment.cost ? `<p>Costo: $${segment.cost.toFixed(2)} MXN</p>` : ''}
+            ${segment.description ? `<p>${segment.description}</p>` : ''}
+          </div>
+        `;
+        
+        segmentsContainer.appendChild(segmentDiv);
+        
+        // Dibujar ruta en el mapa
+        if (segment.path && segment.path.length > 0) {
+          // Convertir puntos al formato requerido por Leaflet
+          const points = segment.path.map(point => [point.latitude, point.longitude]);
+          
+          let color = '#6c757d'; // Color por defecto (gris)
+          switch (segment.type) {
+            case 'WALK': color = '#6c757d'; break; // Gris
+            case 'BUS': color = '#198754'; break; // Verde
+            case 'METRO': color = '#0d6efd'; break; // Azul
+            case 'MINIBUS': color = '#dc3545'; break; // Rojo
+          }
+          
+          // Crear línea en el mapa
+          const polyline = L.polyline(points, {
+            color: color,
+            weight: 5,
+            opacity: 0.7
+          }).addTo(map);
+          
+          // Agregar al array de capas para poder limpiarlas después
+          routeLayers.push(polyline);
+        }
+      }
+      
+      // Ajustar vista del mapa para mostrar toda la ruta
+      if (originMarker && destinationMarker) {
+        const bounds = L.latLngBounds([
+          originMarker.getLatLng(),
+          destinationMarker.getLatLng()
+        ]);
+        
+        // Expandir límites con los puntos de la ruta
+        for (const layer of routeLayers) {
+          bounds.extend(layer.getBounds());
+        }
+        
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+    }
+    
+    // Obtener título para un segmento
+    function getSegmentTitle(segment) {
+      switch (segment.type) {
+        case 'WALK':
+          return `Caminar ${(segment.distance / 1000).toFixed(2)} km (${segment.time} min)`;
+        case 'BUS':
+          return `Tomar Autobús ${segment.routeName || segment.routeId}`;
+        case 'METRO':
+          return `Tomar Metro ${segment.routeName || segment.routeId}`;
+        case 'MINIBUS':
+          return `Tomar Minibús ${segment.routeName || segment.routeId}`;
+        default:
+          return `${segment.type}: ${segment.routeName || 'Desconocido'}`;
+      }
+    }
+    
+    // Obtener datos de ruta
+    async function findRoute() {
+      const originLat = parseFloat(document.getElementById('origin-lat').value);
+      const originLng = parseFloat(document.getElementById('origin-lng').value);
+      const destLat = parseFloat(document.getElementById('destination-lat').value);
+      const destLng = parseFloat(document.getElementById('destination-lng').value);
+      
+      // Validar coordenadas
+      if (isNaN(originLat) || isNaN(originLng) || isNaN(destLat) || isNaN(destLng)) {
+        alert('Por favor, ingrese coordenadas válidas para origen y destino.');
+        return;
+      }
+      
+      // Recopilar tipos de transporte seleccionados
+      const transportTypes = [];
+      if (document.getElementById('bus-checkbox').checked) transportTypes.push('BUS');
+      if (document.getElementById('metro-checkbox').checked) transportTypes.push('METRO');
+      if (document.getElementById('minibus-checkbox').checked) transportTypes.push('MINIBUS');
+      if (document.getElementById('walk-checkbox').checked) transportTypes.push('WALK');
+      
+      // Validar que al menos un tipo de transporte esté seleccionado
+      if (transportTypes.length === 0) {
+        alert('Por favor, seleccione al menos un tipo de transporte.');
+        return;
+      }
+      
+      // Preparar datos de la solicitud
+      const data = {
+        origin: {
+          latitude: originLat,
+          longitude: originLng
+        },
+        destination: {
+          latitude: destLat,
+          longitude: destLng
+        },
+        preferences: {
+          maxWalkingDistance: parseInt(document.getElementById('max-walking').value),
+          transportTypes: transportTypes,
+          prioritizeFastRoute: document.getElementById('fast-route-checkbox').checked,
+          prioritizeLowCost: document.getElementById('low-cost-checkbox').checked,
+          prioritizeLowOccupancy: document.getElementById('low-occupancy-checkbox').checked,
+          maxTransfers: parseInt(document.getElementById('max-transfers').value)
+        }
+      };
+      
+      // Mostrar cargador
+      document.getElementById('loader').style.display = 'block';
+      document.getElementById('route-results').style.display = 'none';
+      
+      try {
+        console.log('Enviando solicitud a la API:', data);
+        
+        // Usar URL relativa, que es más robusta
+        const response = await fetch('/api/trip-planner', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
         });
-    </script>
+        
+        if (!response.ok) {
+          const text = await response.text();
+          console.error('Error response:', text);
+          let errorMessage = 'Error al procesar la solicitud';
+          
+          try {
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (e) {
+            // Si no se puede analizar como JSON, utilizar el texto tal cual
+            errorMessage = text || `Error del servidor: ${response.status}`;
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+        const trip = await response.json();
+        console.log('Respuesta de la API:', trip);
+        
+        // Dibujar ruta en el mapa
+        drawRoute(trip);
+      } catch (error) {
+        console.error('Error en la solicitud:', error);
+        
+        // Mostrar mensaje de error en la interfaz
+        const resultsDiv = document.getElementById('route-results');
+        resultsDiv.style.display = 'block';
+        resultsDiv.innerHTML = `<div class="alert alert-danger">
+          <h4>Error al calcular la ruta</h4>
+          <p>${error.message}</p>
+          <p>Intente utilizar estas coordenadas para Línea 1 del Metro:</p>
+          <ul>
+            <li>Origen (Estación Zaragoza): 25.6837143, -100.2881700</li>
+            <li>Destino (Estación Cuauhtémoc): 25.6875702, -100.3394937</li>
+          </ul>
+        </div>`;
+      } finally {
+        // Ocultar cargador
+        document.getElementById('loader').style.display = 'none';
+      }
+    }
+    
+    // Ejecutar cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', function() {
+      // Inicializar mapa
+      initMap();
+      
+      // Eventos para selector de distancia de caminata
+      const walkingRange = document.getElementById('max-walking');
+      const walkingValue = document.getElementById('walking-value');
+      
+      walkingRange.addEventListener('input', function() {
+        walkingValue.textContent = `${this.value}m`;
+      });
+      
+      // Eventos para botones de selección en mapa
+      document.getElementById('select-origin').addEventListener('click', function() {
+        selectingOrigin = true;
+        selectingDestination = false;
+        alert('Haz clic en el mapa para seleccionar el origen');
+      });
+      
+      document.getElementById('select-destination').addEventListener('click', function() {
+        selectingOrigin = false;
+        selectingDestination = true;
+        alert('Haz clic en el mapa para seleccionar el destino');
+      });
+      
+      // Envío del formulario
+      document.getElementById('route-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+        findRoute();
+      });
+      
+      // Establecer coordenadas de ejemplo (Macroplaza y Parque Fundidora)
+      setOrigin(25.6694, -100.3098);
+      setDestination(25.6791, -100.2840);
+    });
+  </script>
 </body>
 </html> 

@@ -1,7 +1,6 @@
 const express = require('express');
 const routesController = require('./routesController');
 const vehiclesController = require('./vehiclesController');
-const tripPlannerController = require('./tripPlannerController');
 
 const router = express.Router();
 
@@ -18,8 +17,5 @@ router.get('/routes/:routeId', routesController.getRouteById);
 router.get('/routes/:routeId/vehicles', routesController.getRouteVehicles);
 router.post('/routes', routesController.createRoute);
 router.post('/routes/suggest', routesController.suggestRoute);
-
-// Ruta para planificador de viajes
-router.post('/trips/plan', tripPlannerController.planTrip);
 
 module.exports = router; 

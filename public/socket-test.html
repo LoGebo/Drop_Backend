@@ -11,29 +11,18 @@
             line-height: 1.6;
             margin: 0;
             padding: 20px;
-            box-sizing: border-box;
-            overflow-x: hidden;
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 20px;
         }
         .container {
             display: flex;
-            max-width: 100%;
-            flex-wrap: wrap;
+            max-width: 1200px;
             margin: 0 auto;
-            justify-content: center;
         }
         .column {
             flex: 1;
-            min-width: 300px;
-            max-width: 600px;
             padding: 20px;
             border: 1px solid #ddd;
             border-radius: 5px;
             margin: 10px;
-            box-sizing: border-box;
         }
         h1, h2 {
             color: #333;
@@ -70,7 +59,6 @@
             overflow-y: auto;
             font-family: monospace;
             white-space: pre-wrap;
-            word-break: break-word;
         }
         .status {
             margin: 10px 0;
@@ -84,16 +72,6 @@
         .disconnected {
             background-color: #f8d7da;
             color: #721c24;
-        }
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-                align-items: center;
-            }
-            .column {
-                width: 100%;
-                max-width: 100%;
-            }
         }
     </style>
 </head>
@@ -116,12 +94,7 @@
                 <select id="vehicleId">
                     <option value="BUS001">BUS001</option>
                     <option value="BUS002">BUS002</option>
-                    <option value="BUS003">BUS003</option>
-                    <option value="BUS004">BUS004</option>
-                    <option value="BUS005">BUS005</option>
                     <option value="TRAIN001">TRAIN001</option>
-                    <option value="TRAIN002">TRAIN002</option>
-                    <option value="MINIBUS001">MINIBUS001</option>
                     <option value="NEW_BUS">NUEVO_BUS</option>
                 </select>
             </div>
@@ -142,23 +115,10 @@
             </div>
             
             <div class="form-group">
-                <label for="occupancyStop">Personas en la parada:</label>
-                <input type="number" id="occupancyStop" min="0" max="100" value="10">
-            </div>
-            
-            <div class="form-group">
-                <label for="price">Precio ($):</label>
-                <input type="number" id="price" min="0" step="0.50" value="12.00">
-            </div>
-            
-            <div class="form-group">
                 <label for="routeId">Ruta:</label>
                 <select id="routeId">
                     <option value="ROUTE1">ROUTE1 - Centro-Aeropuerto</option>
                     <option value="ROUTE2">ROUTE2 - Línea 1 Tren</option>
-                    <option value="ROUTE3">ROUTE3 - Periferia Sur</option>
-                    <option value="ROUTE4">ROUTE4 - Circuito Interior</option>
-                    <option value="ROUTE5">ROUTE5 - Expreso Aeropuerto</option>
                 </select>
             </div>
             
@@ -187,12 +147,7 @@
                 <select id="followVehicle">
                     <option value="BUS001">BUS001</option>
                     <option value="BUS002">BUS002</option>
-                    <option value="BUS003">BUS003</option>
-                    <option value="BUS004">BUS004</option>
-                    <option value="BUS005">BUS005</option>
                     <option value="TRAIN001">TRAIN001</option>
-                    <option value="TRAIN002">TRAIN002</option>
-                    <option value="MINIBUS001">MINIBUS001</option>
                 </select>
                 <button id="followVehicleBtn">Seguir</button>
             </div>
@@ -202,9 +157,6 @@
                 <select id="followRoute">
                     <option value="ROUTE1">ROUTE1 - Centro-Aeropuerto</option>
                     <option value="ROUTE2">ROUTE2 - Línea 1 Tren</option>
-                    <option value="ROUTE3">ROUTE3 - Periferia Sur</option>
-                    <option value="ROUTE4">ROUTE4 - Circuito Interior</option>
-                    <option value="ROUTE5">ROUTE5 - Expreso Aeropuerto</option>
                 </select>
                 <button id="followRouteBtn">Seguir</button>
             </div>
@@ -269,8 +221,6 @@
             const latitude = parseFloat(document.getElementById('latitude').value);
             const longitude = parseFloat(document.getElementById('longitude').value);
             const occupancy = parseInt(document.getElementById('occupancy').value);
-            const occupancyStop = parseInt(document.getElementById('occupancyStop').value);
-            const price = parseFloat(document.getElementById('price').value);
             const routeId = document.getElementById('routeId').value;
             
             const locationData = {
@@ -278,8 +228,6 @@
                 latitude,
                 longitude,
                 occupancy,
-                occupancyStop,
-                price,
                 routeId
             };
             
@@ -305,8 +253,6 @@
                 let latitude = parseFloat(document.getElementById('latitude').value);
                 let longitude = parseFloat(document.getElementById('longitude').value);
                 let occupancy = parseInt(document.getElementById('occupancy').value);
-                let occupancyStop = parseInt(document.getElementById('occupancyStop').value);
-                const price = parseFloat(document.getElementById('price').value);
                 const routeId = document.getElementById('routeId').value;
                 
                 // Cambiar ligeramente la posición
@@ -317,22 +263,15 @@
                 occupancy += Math.floor((Math.random() - 0.5) * 10);
                 occupancy = Math.max(0, Math.min(100, occupancy));
                 
-                // Actualizar personas en la parada aleatoriamente
-                occupancyStop += Math.floor((Math.random() - 0.5) * 5);
-                occupancyStop = Math.max(0, Math.min(50, occupancyStop));
-                
                 document.getElementById('latitude').value = latitude;
                 document.getElementById('longitude').value = longitude;
                 document.getElementById('occupancy').value = occupancy;
-                document.getElementById('occupancyStop').value = occupancyStop;
                 
                 const locationData = {
                     vehicleId,
                     latitude,
                     longitude,
                     occupancy,
-                    occupancyStop,
-                    price,
                     routeId
                 };
                 
