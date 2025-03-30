@@ -7,6 +7,9 @@ const { connectRedis } = require('./config/redis');
 const apiRoutes = require('./routes');
 const tripPlannerRoutes = require('./routes/tripPlanner');
 const metroData = require('./data/metroRoutes');
+const socketio = require('socket.io');
+const socketManager = require('./sockets/socketManager');
+const mobileAppRoutes = require('./routes/mobileAppApi');
 require('dotenv').config();
 
 // Inicializar la aplicación Express
@@ -36,10 +39,14 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Configurar rutas de API
 app.use('/api', apiRoutes);
 app.use('/api/trip-planner', tripPlannerRoutes);
+app.use('/api/mobile', mobileAppRoutes);
 
 // Simulador simple de vagones de metro en memoria
 let metroVehicles = [];
 let vehicleIdCounter = 1;
+
+// Hacer la variable metroVehicles global para que pueda ser accedida desde otros módulos
+global.metroVehicles = metroVehicles;
 
 // Endpoint directo para acceder a datos de estaciones del metro (para resolver el error)
 app.get('/api/metro/stations/:lineId', (req, res) => {
@@ -440,7 +447,10 @@ app.use((req, res) => {
 const server = http.createServer(app);
 
 // Iniciar el servidor Socket.io
-initSocketServer(server);
+const socketIo = socketManager.initSocketServer(server);
+
+// Hacer disponible io globalmente para que pueda ser utilizado por otros módulos
+global.io = socketIo;
 
 // Conectar a Redis
 connectRedis();
