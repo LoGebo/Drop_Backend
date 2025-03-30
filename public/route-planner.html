@@ -277,6 +277,95 @@
         </div>
       </div>
     </div>
+
+    <!-- Añadir un nuevo section para simulación en tiempo real del tren -->
+    <div class="row mt-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header bg-warning text-dark">
+            <h4 class="mb-0">Simulación en Tiempo Real del Metro</h4>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-5">
+                <div class="form-group mb-3">
+                  <label for="live-simulation-start-station" class="form-label">Estación Inicial:</label>
+                  <select class="form-select" id="live-simulation-start-station">
+                    <option value="">Cargando estaciones...</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-5">
+                <div class="form-group mb-3">
+                  <label for="live-simulation-end-station" class="form-label">Estación Final:</label>
+                  <select class="form-select" id="live-simulation-end-station">
+                    <option value="">Cargando estaciones...</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="form-group mb-3">
+                  <label for="live-simulation-speed" class="form-label">Velocidad (km/h):</label>
+                  <input type="number" class="form-control" id="live-simulation-speed" value="40" min="1" max="100">
+                </div>
+              </div>
+            </div>
+            <div class="row mt-2">
+              <div class="col-md-6">
+                <button id="start-simulation-btn" class="btn btn-success w-100">
+                  <i class="bi bi-play-circle"></i> Iniciar Simulación
+                </button>
+              </div>
+              <div class="col-md-6">
+                <button id="stop-simulation-btn" class="btn btn-danger w-100" disabled>
+                  <i class="bi bi-stop-circle"></i> Detener Simulación
+                </button>
+              </div>
+            </div>
+            <div class="row mt-3">
+              <div class="col-12">
+                <div class="alert alert-info" id="simulation-status">
+                  Configura la simulación y presiona "Iniciar Simulación" para comenzar.
+                </div>
+              </div>
+            </div>
+            <div class="row mt-2">
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-header bg-dark text-white">
+                    Posición Actual
+                  </div>
+                  <div class="card-body">
+                    <div id="current-position">
+                      <p><strong>Latitud:</strong> <span id="current-lat">-</span></p>
+                      <p><strong>Longitud:</strong> <span id="current-lng">-</span></p>
+                      <p><strong>Estación más cercana:</strong> <span id="nearest-station">-</span></p>
+                      <p><strong>Última actualización:</strong> <span id="last-update">-</span></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-header bg-dark text-white">
+                    Información del Recorrido
+                  </div>
+                  <div class="card-body">
+                    <div id="route-info">
+                      <p><strong>ID del Vagón:</strong> <span id="vehicle-id">-</span></p>
+                      <p><strong>Estado:</strong> <span id="vehicle-status">-</span></p>
+                      <p><strong>Dirección:</strong> <span id="vehicle-direction">-</span></p>
+                      <p><strong>Progreso:</strong> <span id="route-progress">-</span></p>
+                      <p><strong>Ocupación:</strong> <span id="vehicle-occupancy">-</span></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
@@ -289,6 +378,11 @@
     let routeLayers = [];
     let selectingOrigin = false;
     let selectingDestination = false;
+    
+    // Variables para la simulación en tiempo real
+    let liveSimulationVehicleId = null;
+    let liveSimulationUpdateInterval = null;
+    let liveSimulationMarker = null;
     
     // Coordenadas de Monterrey (centrar mapa)
     const MONTERREY_LAT = 25.6866;
@@ -661,7 +755,284 @@
       // Establecer coordenadas de ejemplo (Macroplaza y Parque Fundidora)
       setOrigin(25.6694, -100.3098);
       setDestination(25.6791, -100.2840);
+      
+      // Inicializar simulación en tiempo real
+      initLiveSimulation();
     });
+
+    // Función para manejar la simulación en tiempo real
+    function initLiveSimulation() {
+      // Cargar las estaciones disponibles - usar endpoint directo a metroData
+      fetch('/api/metro/stations/L1')
+        .then(response => response.json())
+        .then(data => {
+          if (data.success && data.data) {
+            const startSelect = document.getElementById('live-simulation-start-station');
+            const endSelect = document.getElementById('live-simulation-end-station');
+            
+            // Limpiar opciones actuales
+            startSelect.innerHTML = '';
+            endSelect.innerHTML = '';
+            
+            // Añadir las estaciones
+            data.data.forEach(station => {
+              const optionStart = document.createElement('option');
+              optionStart.value = station.name;
+              optionStart.text = station.name;
+              startSelect.appendChild(optionStart);
+              
+              const optionEnd = document.createElement('option');
+              optionEnd.value = station.name;
+              optionEnd.text = station.name;
+              endSelect.appendChild(optionEnd);
+            });
+            
+            // Seleccionar estaciones por defecto
+            startSelect.value = 'Parque Fundidora';
+            endSelect.value = 'Cuauhtémoc';
+          } else {
+            console.error('Error al cargar estaciones:', data);
+            updateSimulationStatus('Error al cargar estaciones. Consulta la consola para más detalles.', 'warning');
+          }
+        })
+        .catch(error => {
+          console.error('Error al cargar estaciones:', error);
+          updateSimulationStatus('Error al cargar estaciones. Consulta la consola para más detalles.', 'warning');
+        });
+      
+      // Botón para iniciar simulación
+      document.getElementById('start-simulation-btn').addEventListener('click', startLiveSimulation);
+      
+      // Botón para detener simulación
+      document.getElementById('stop-simulation-btn').addEventListener('click', stopLiveSimulation);
+    }
+
+    // Función para iniciar la simulación
+    async function startLiveSimulation() {
+      const startStation = document.getElementById('live-simulation-start-station').value;
+      const endStation = document.getElementById('live-simulation-end-station').value;
+      const speed = document.getElementById('live-simulation-speed').value;
+      
+      if (!startStation || !endStation || !speed) {
+        updateSimulationStatus('Por favor, selecciona estaciones y velocidad.', 'danger');
+        return;
+      }
+      
+      try {
+        // Crear un nuevo vagón para la simulación
+        const response = await fetch('/api/metro/vehicles/add-between-stations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            lineId: 'L1',
+            startStation,
+            endStation,
+            speed: parseFloat(speed),
+            directionForward: true
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          liveSimulationVehicleId = result.data.id;
+          
+          // Actualizar UI
+          updateSimulationStatus(`Simulación iniciada correctamente. ID del vagón: ${liveSimulationVehicleId}`, 'success');
+          document.getElementById('start-simulation-btn').disabled = true;
+          document.getElementById('stop-simulation-btn').disabled = false;
+          document.getElementById('vehicle-id').textContent = liveSimulationVehicleId;
+          
+          // Crear marcador en el mapa si no existe
+          if (!liveSimulationMarker) {
+            // Icono personalizado para el vagón del metro
+            const metroIcon = L.divIcon({
+              className: 'metro-train-icon',
+              html: `<div style="background-color: #EC4899; width: 30px; height: 30px; border-radius: 50%; border: 3px solid #000; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">🚇</div>`,
+              iconSize: [30, 30],
+              iconAnchor: [15, 15]
+            });
+            
+            liveSimulationMarker = L.marker([result.data.currentPosition.latitude, result.data.currentPosition.longitude], {
+              icon: metroIcon,
+              zIndexOffset: 2000
+            }).addTo(map);
+            
+            liveSimulationMarker.bindTooltip('Vagón en tiempo real', {
+              permanent: true,
+              direction: 'top',
+              offset: [0, -10]
+            });
+          } else {
+            liveSimulationMarker.setLatLng([result.data.currentPosition.latitude, result.data.currentPosition.longitude]);
+          }
+          
+          // Centrar mapa en el vagón
+          map.setView([result.data.currentPosition.latitude, result.data.currentPosition.longitude], 15);
+          
+          // Iniciar actualización periódica
+          startLiveUpdates();
+          
+          // Actualizar información inicial
+          updateVehicleInfo(result.data);
+        } else {
+          updateSimulationStatus(`Error al iniciar simulación: ${result.message}`, 'danger');
+        }
+      } catch (error) {
+        console.error('Error al iniciar simulación:', error);
+        updateSimulationStatus('Error al iniciar la simulación. Verifica la consola para más detalles.', 'danger');
+      }
+    }
+
+    // Función para iniciar actualizaciones periódicas
+    function startLiveUpdates() {
+      // Detener cualquier intervalo existente
+      if (liveSimulationUpdateInterval) {
+        clearInterval(liveSimulationUpdateInterval);
+      }
+      
+      // Actualizar cada segundo
+      liveSimulationUpdateInterval = setInterval(updateLiveSimulation, 1000);
+    }
+
+    // Función para actualizar la simulación
+    async function updateLiveSimulation() {
+      if (!liveSimulationVehicleId) return;
+      
+      try {
+        const response = await fetch(`/api/metro/vehicles/${liveSimulationVehicleId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          // Actualizar marcador en el mapa
+          if (liveSimulationMarker && result.data.currentPosition) {
+            liveSimulationMarker.setLatLng([
+              result.data.currentPosition.latitude,
+              result.data.currentPosition.longitude
+            ]);
+          }
+          
+          // Actualizar información
+          updateVehicleInfo(result.data);
+        } else {
+          console.error('Error al obtener información del vagón:', result.message);
+          if (result.message.includes('no encontrado')) {
+            // El vagón ya no existe, detener simulación
+            stopLiveSimulation();
+          }
+        }
+      } catch (error) {
+        console.error('Error al actualizar simulación:', error);
+      }
+    }
+
+    // Función para actualizar información del vehículo en la UI
+    function updateVehicleInfo(vehicle) {
+      // Actualizar posición actual
+      document.getElementById('current-lat').textContent = vehicle.currentPosition ? vehicle.currentPosition.latitude.toFixed(6) : '-';
+      document.getElementById('current-lng').textContent = vehicle.currentPosition ? vehicle.currentPosition.longitude.toFixed(6) : '-';
+      document.getElementById('nearest-station').textContent = vehicle.nearestStation || '-';
+      document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+      
+      // Actualizar información del recorrido
+      document.getElementById('vehicle-status').textContent = vehicle.status === 'ACTIVE' ? 'En movimiento' : 'Detenido';
+      document.getElementById('vehicle-direction').textContent = vehicle.directionForward ? 'Hacia adelante' : 'Hacia atrás';
+      
+      // Calcular y mostrar progreso
+      let progress = '-';
+      if (vehicle.routeProgress !== undefined && vehicle.segmentIndex !== undefined && vehicle.route) {
+        const percentage = Math.round(vehicle.routeProgress * 100);
+        const segment = vehicle.segmentIndex + 1;
+        const totalSegments = vehicle.route.length - 1;
+        progress = `${percentage}% en segmento ${segment}/${totalSegments}`;
+      }
+      document.getElementById('route-progress').textContent = progress;
+      
+      // Mostrar ocupación y capacidad
+      if (vehicle.currentOccupancy !== undefined && vehicle.capacity !== undefined) {
+        const occupancyPercentage = Math.round((vehicle.currentOccupancy / vehicle.capacity) * 100);
+        let occupancyText = `${vehicle.currentOccupancy}/${vehicle.capacity} personas (${occupancyPercentage}%)`;
+        
+        // Agregar indicador visual basado en el porcentaje de ocupación
+        let occupancyClass = '';
+        if (occupancyPercentage < 50) {
+          occupancyClass = 'text-success'; // Verde
+        } else if (occupancyPercentage < 80) {
+          occupancyClass = 'text-warning'; // Amarillo
+        } else {
+          occupancyClass = 'text-danger'; // Rojo
+        }
+        
+        document.getElementById('vehicle-occupancy').innerHTML = `<span class="${occupancyClass}">${occupancyText}</span>`;
+        
+        // Actualizar también el tooltip del marcador si existe
+        if (liveSimulationMarker) {
+          liveSimulationMarker.setTooltipContent(`
+            <b>Vagón en tiempo real</b><br>
+            <b>Estación más cercana:</b> ${vehicle.nearestStation || '-'}<br>
+            <b>Ocupación:</b> ${vehicle.currentOccupancy}/${vehicle.capacity}
+          `);
+        }
+      } else {
+        document.getElementById('vehicle-occupancy').textContent = '-';
+      }
+    }
+
+    // Función para detener la simulación
+    async function stopLiveSimulation() {
+      if (!liveSimulationVehicleId) return;
+      
+      try {
+        // Detener actualizaciones
+        if (liveSimulationUpdateInterval) {
+          clearInterval(liveSimulationUpdateInterval);
+          liveSimulationUpdateInterval = null;
+        }
+        
+        // Eliminar el vagón del servidor
+        const response = await fetch(`/api/metro/vehicles/${liveSimulationVehicleId}`, {
+          method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        // Limpiar marcador
+        if (liveSimulationMarker) {
+          map.removeLayer(liveSimulationMarker);
+          liveSimulationMarker = null;
+        }
+        
+        // Resetear UI
+        updateSimulationStatus('Simulación detenida.', 'info');
+        document.getElementById('start-simulation-btn').disabled = false;
+        document.getElementById('stop-simulation-btn').disabled = true;
+        
+        // Limpiar información
+        document.getElementById('current-lat').textContent = '-';
+        document.getElementById('current-lng').textContent = '-';
+        document.getElementById('nearest-station').textContent = '-';
+        document.getElementById('last-update').textContent = '-';
+        document.getElementById('vehicle-id').textContent = '-';
+        document.getElementById('vehicle-status').textContent = '-';
+        document.getElementById('vehicle-direction').textContent = '-';
+        document.getElementById('route-progress').textContent = '-';
+        
+        // Limpiar ID del vagón
+        liveSimulationVehicleId = null;
+      } catch (error) {
+        console.error('Error al detener simulación:', error);
+        updateSimulationStatus('Error al detener la simulación. Verifica la consola para más detalles.', 'danger');
+      }
+    }
+
+    // Función para actualizar el mensaje de estado
+    function updateSimulationStatus(message, type = 'info') {
+      const statusElement = document.getElementById('simulation-status');
+      statusElement.className = `alert alert-${type}`;
+      statusElement.textContent = message;
+    }
   </script>
 </body>
 </html> 
